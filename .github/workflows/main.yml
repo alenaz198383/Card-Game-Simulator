@@ -91,9 +91,15 @@ jobs:
       contents: write
     timeout-minutes: 30
     steps:
+      - name: Free Disk Space
+        uses: jlumbroso/free-disk-space@v1.3.1
+        with:
+          large-packages: false
+
       - name: Pre-pull Unity Docker image
         run: |
           docker pull unityci/editor:ubuntu-${{ env.UNITY_VERSION }}-linux-il2cpp-3 &
+
       - name: Checkout Repository
         uses: actions/checkout@v7
         with:
@@ -124,10 +130,7 @@ jobs:
         with:
           path: Library
           key: Library-test-${{ hashFiles('Packages/manifest.json', 'Packages/packages-lock.json', 'ProjectSettings/ProjectSettings.asset', 'ProjectSettings/ProjectVersion.txt') }}
-      - name: Free Disk Space
-        uses: jlumbroso/free-disk-space@v1.3.1
-        with:
-          large-packages: false
+
       - name: Run EditMode Tests
         uses: game-ci/unity-test-runner@v4.3.1
         env:
@@ -136,6 +139,7 @@ jobs:
           UNITY_SERIAL: ${{ secrets.UNITY_SERIAL_PERSONAL }}
         with:
           testMode: editmode
+
       - name: Run PlayMode Tests
         uses: game-ci/unity-test-runner@v4.3.1
         env:
@@ -159,6 +163,11 @@ jobs:
       buildVersion: ${{ steps.buildStep.outputs.buildVersion }}
     timeout-minutes: 90
     steps:
+      - name: Free Disk Space
+        uses: jlumbroso/free-disk-space@v1.3.1
+        with:
+          tool-cache: true
+
       - name: Pre-pull Unity Docker image
         run: |
           docker pull unityci/editor:ubuntu-${{ env.UNITY_VERSION }}-Android-3 &
@@ -193,11 +202,7 @@ jobs:
           mv Card-Game-Simulator_new/ Card-Game-Simulator/
           cd ./Card-Game-Simulator/
           mkdir -p Assets/Plugins/Sentry/
-          cat_file Assets/Plugins/Sentry/SentryCliOptions.asset
           echo "$SENTRY_CLI_OPTIONS" > Assets/Plugins/Sentry/SentryCliOptions.asset
-          cat_file Assets/Plugins/Sentry/SentryCliOptions.asset
-          cat_file ProjectSettings/androidVersionCode.txt
-          cat_file ProjectSettings/buildVersion.txt
           androidVersionCode=$(cat ProjectSettings/androidVersionCode.txt | tr -d '[:space:]')
           buildVersion=$(cat ProjectSettings/buildVersion.txt | tr -d '[:space:]')
           echo "ANDROID_VERSION_CODE=$androidVersionCode" >> $GITHUB_ENV
@@ -209,10 +214,6 @@ jobs:
           echo "Detected version: $VERSION, code: $ANDROID_VERSION_CODE"
           echo "Detected version: ${{ env.VERSION }}, code: ${{ env.ANDROID_VERSION_CODE }}"
 
-      - name: Free Disk Space
-        uses: jlumbroso/free-disk-space@v1.3.1
-        with:
-          tool-cache: true
       - name: Cache Library
         uses: actions/cache@v6
         with:
