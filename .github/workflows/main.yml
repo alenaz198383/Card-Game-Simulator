@@ -6,14 +6,12 @@ permissions:
   contents: read # To read the code
   pull-requests: read # To check for PR (gh pr list)
 
+concurrency: unity
 env:
   DOTNET_CLI_TELEMETRY_OPTOUT: true
   DOTNET_NOLOGO: true
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
-concurrency: unity
-env:
   UNITY_VERSION: 6000.3.15f1
 on:
   release:
