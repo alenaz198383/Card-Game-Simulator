@@ -178,49 +178,42 @@ jobs:
           R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
           SENTRY_CLI_OPTIONS: ${{ secrets.SENTRY_CLI_OPTIONS }}
         run: |
-          check_folder() {
-            local folder=$1
-            local fail=$2
-            echo ""; echo "---"
-            if [ -d "$folder" ]; then
-              echo "📁 $folder($(readlink -f "$folder")) (Size: $(du -sh "$folder" | cut -f1)):"
-              ls -alF --group-directories-first "$folder"
-            else
-              echo "❌ 📁 No $folder"
-              if [ "$fail" == "true" ]; then
-                exit 1
-              fi
-            fi
-            echo "---"; echo ""
-          }
           cd ..
-          mkdir -p "Card-Game-Simulator_bak/Assets/Scripts/Cgs/Editor/"
-          check_folder() "./"
-          check_folder() "Card-Game-Simulator/Assets/Scripts/Cgs/Editor/"
-          check_folder() "Card-Game-Simulator_bak/Assets/Scripts/Cgs/Editor/"
-          cp "Card-Game-Simulator/Assets/Scripts/Cgs/Editor/*" "Card-Game-Simulator_bak/Assets/Scripts/Cgs/Editor/"
-          check_folder() "Card-Game-Simulator/Assets/Scripts/Cgs/Editor/"
-          check_folder() "Card-Game-Simulator_bak/Assets/Scripts/Cgs/Editor/"
-          rm -rf Card-Game-Simulator/
-          mkdir -p Card-Game-Simulator/Assets/Plugins/Sentry/
           if aws s3 cp "s3://$R2_BUCKET/cache.zip" cache.zip --endpoint-url $R2_ENDPOINT --quiet; then
             echo "Cache found, extracting..."
-            unzip -q cache.zip -d ./Card-Game-Simulator/ && rm cache.zip && cd ./Card-Game-Simulator/
-            echo "$SENTRY_CLI_OPTIONS" > Assets/Plugins/Sentry/SentryCliOptions.asset
+            unzip -q cache.zip -d ./Card-Game-Simulator_new/ && rm cache.zip
           else
             echo "Cache not found. Nothing to download - stop the job."
             exit 1
           fi
-          check_folder() "Card-Game-Simulator/Assets/Scripts/Cgs/Editor/"
-          check_folder() "Card-Game-Simulator_bak/Assets/Scripts/Cgs/Editor/"
-          cp "Card-Game-Simulator_bak/Assets/Scripts/Cgs/Editor/*" "Card-Game-Simulator/Assets/Scripts/Cgs/Editor/"
-          check_folder() "Card-Game-Simulator/Assets/Scripts/Cgs/Editor/"
-          rm -rf Card-Game-Simulator_bak/
-          check_folder() "Card-Game-Simulator_bak/Assets/Scripts/Cgs/Editor/"
-          buildVersion=$(cat ProjectSettings/buildVersion.txt | tr -d '[:space:]')
+          chmod +x Card-Game-Simulator_new/.github/scripts/helpers.sh && source Card-Game-Simulator_new/.github/scripts/helpers.sh
+          mkdir -p "Card-Game-Simulator_bak/Assets/Scripts/Cgs/Editor/"
+          check_folder "./"
+          check_folder "Card-Game-Simulator/Assets/Scripts/Cgs/Editor/"
+          check_folder "Card-Game-Simulator_bak/Assets/Scripts/Cgs/Editor/"
+          cp "Card-Game-Simulator/Assets/Scripts/Cgs/Editor/"* "Card-Game-Simulator_bak/Assets/Scripts/Cgs/Editor/"
+          check_folder "Card-Game-Simulator/Assets/Scripts/Cgs/Editor/"
+          check_folder "Card-Game-Simulator_bak/Assets/Scripts/Cgs/Editor/"
+          rm -rf Card-Game-Simulator/ && echo "Removed Card-Game-Simulator/"
+          check_folder "Card-Game-Simulator/"
+          mv Card-Game-Simulator_new/ Card-Game-Simulator/ && source Card-Game-Simulator/.github/scripts/helpers.sh && echo "Moved Simulator_new to Simulator"
+          check_folder "Card-Game-Simulator/Assets/Scripts/Cgs/Editor/"
+          check_folder "Card-Game-Simulator_bak/Assets/Scripts/Cgs/Editor/"
+          cp "Card-Game-Simulator_bak/Assets/Scripts/Cgs/Editor/"* "Card-Game-Simulator/Assets/Scripts/Cgs/Editor/" && echo "Copied Simulator_bak/Editor/ to Simulator/Editor/"
+          check_folder "Card-Game-Simulator/Assets/Scripts/Cgs/Editor/"
+          rm -rf Card-Game-Simulator_bak/ && echo "Removed Card-Game-Simulator_bak/"
+          check_folder "Card-Game-Simulator_bak/"
+          cd ./Card-Game-Simulator/ && source .github/scripts/helpers.sh
+          mkdir -p Assets/Plugins/Sentry/
+          cat_file Assets/Plugins/Sentry/SentryCliOptions.asset
+          echo "$SENTRY_CLI_OPTIONS" > Assets/Plugins/Sentry/SentryCliOptions.asset
+          cat_file Assets/Plugins/Sentry/SentryCliOptions.asset
+          cat_file ProjectSettings/androidVersionCode.txt
+          cat_file ProjectSettings/buildVersion.txt
           androidVersionCode=$(cat ProjectSettings/androidVersionCode.txt | tr -d '[:space:]')
-          echo "VERSION=$buildVersion" >> $GITHUB_ENV
+          buildVersion=$(cat ProjectSettings/buildVersion.txt | tr -d '[:space:]')
           echo "ANDROID_VERSION_CODE=$androidVersionCode" >> $GITHUB_ENV
+          echo "VERSION=$buildVersion" >> $GITHUB_ENV
           echo "Detected version: $buildVersion, code: $androidVersionCode"
 
       - name: Versions
