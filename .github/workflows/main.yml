@@ -80,19 +80,27 @@ jobs:
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      - name: Create LFS file list
-        run: git lfs ls-files -l | cut -d' ' -f1 | sort > .lfs-assets-id
-      - name: Restore LFS cache
-        uses: actions/cache@v6
-        id: lfs-cache
-        with:
-          path: .git/lfs
-          key: ${{ runner.os }}-lfs-${{ hashFiles('.lfs-assets-id') }}
-      - name: Git LFS Pull
+
+      - name: Restore cache from R2
+        id: restore_cache_r2
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-east-1
+          R2_BUCKET: ${{ secrets.R2_BUCKET_NAME }}
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
         run: |
-          git lfs pull
-          git add .
-          git reset --hard
+          cd ..
+          rm -rf Card-Game-Simulator/
+          mkdir -p Card-Game-Simulator/
+          if aws s3 cp "s3://$R2_BUCKET/cache.zip" cache.zip --endpoint-url $R2_ENDPOINT --quiet; then
+            echo "Cache found, extracting..."
+            unzip -q cache.zip -d ./Card-Game-Simulator/ && rm cache.zip && cd ./Card-Game-Simulator/
+          else
+            echo "Cache not found. Nothing to download - stop the job."
+            exit 1
+          fi
+
       - name: Cache Library
         uses: actions/cache@v6
         with:
@@ -152,10 +160,7 @@ jobs:
           R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
           SENTRY_CLI_OPTIONS: ${{ secrets.SENTRY_CLI_OPTIONS }}
         run: |
-          pwd
           cd ..
-          pwd
-          ls -alF --group-directories-first .
           rm -rf Card-Game-Simulator/
           mkdir -p Card-Game-Simulator/Assets/Plugins/Sentry/
           if aws s3 cp "s3://$R2_BUCKET/cache.zip" cache.zip --endpoint-url $R2_ENDPOINT --quiet; then
@@ -163,13 +168,14 @@ jobs:
             unzip -q cache.zip -d ./Card-Game-Simulator/ && rm cache.zip && cd ./Card-Game-Simulator/
             echo "$SENTRY_CLI_OPTIONS" > Assets/Plugins/Sentry/SentryCliOptions.asset
           else
-            echo "Cache not found. Nothing to download."
+            echo "Cache not found. Nothing to download - stop the job."
             exit 1
           fi
-          pwd
-          echo "BUILD_VERSION=$(cat ProjectSettings/buildVersion.txt | tr -d '[:space:]')" >> $GITHUB_ENV
-          echo "ANDROID_CODE=$(cat ProjectSettings/androidVersionCode.txt | tr -d '[:space:]')" >> $GITHUB_ENV
-          echo "Detected version: ${{ env.BUILD_VERSION }}, code: ${{ env.ANDROID_CODE }}"
+          buildVersion=$(cat ProjectSettings/buildVersion.txt | tr -d '[:space:]')
+          androidVersionCode=$(cat ProjectSettings/androidVersionCode.txt | tr -d '[:space:]')
+          echo "BUILD_VERSION=$buildVersion" >> $GITHUB_OUTPUT
+          echo "ANDROID_CODE=$androidVersionCode" >> $GITHUB_OUTPUT
+          echo "Detected version: $buildVersion, code: $androidVersionCode"
 
       - name: Create LFS file list
         run: git lfs ls-files -l | cut -d' ' -f1 | sort > .lfs-assets-id
