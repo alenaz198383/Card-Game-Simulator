@@ -198,6 +198,7 @@ jobs:
       - name: Versions
         run: |
           echo "Detected version: $VERSION, code: $ANDROID_VERSION_CODE"
+          echo "Detected version: ${{ env.VERSION }}, code: ${{ env.ANDROID_VERSION_CODE }}"
 
       - name: Free Disk Space
         uses: jlumbroso/free-disk-space@v1.3.1
