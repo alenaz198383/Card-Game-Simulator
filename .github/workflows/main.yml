@@ -19,6 +19,10 @@ on:
       - published
   workflow_dispatch:
     inputs:
+      run_tests:
+        description: 'Run Tests'
+        type: boolean
+        default: false
       android_export_types:
         description: 'Android Export Types'
         type: choice
@@ -78,6 +82,9 @@ jobs:
   tests:
     name: Unit Tests
     needs: [check_secrets]
+    if: |
+      github.event_name == 'pull_request' ||
+      (github.event_name == 'workflow_dispatch' && inputs.run_tests)
     runs-on: ubuntu-latest
     permissions:
       checks: write
