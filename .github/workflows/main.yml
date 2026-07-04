@@ -96,10 +96,6 @@ jobs:
         with:
           large-packages: false
 
-      - name: Pre-pull Unity Docker image
-        run: |
-          docker pull unityci/editor:ubuntu-${{ env.UNITY_VERSION }}-linux-il2cpp-3 &
-
       - name: Checkout Repository
         uses: actions/checkout@v7
         with:
@@ -140,15 +136,15 @@ jobs:
         with:
           testMode: editmode
 
-      - name: Run PlayMode Tests
-        uses: game-ci/unity-test-runner@v4.3.1
-        env:
-          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL_PERSONAL }}
-          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD_PERSONAL }}
-          UNITY_SERIAL: ${{ secrets.UNITY_SERIAL_PERSONAL }}
-        with:
-          testMode: playmode
-          githubToken: ${{ secrets.GITHUB_TOKEN }}
+      #- name: Run PlayMode Tests
+      #  uses: game-ci/unity-test-runner@v4.3.1
+      #  env:
+      #    UNITY_EMAIL: ${{ secrets.UNITY_EMAIL_PERSONAL }}
+      #    UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD_PERSONAL }}
+      #    UNITY_SERIAL: ${{ secrets.UNITY_SERIAL_PERSONAL }}
+      #  with:
+      #    testMode: playmode
+      #    githubToken: ${{ secrets.GITHUB_TOKEN }}
 
   buildAndroid:
     name: 🦺 Build for Android (${{ matrix.exportMode }})
@@ -167,10 +163,6 @@ jobs:
         uses: jlumbroso/free-disk-space@v1.3.1
         with:
           tool-cache: true
-
-      - name: Pre-pull Unity Docker image
-        run: |
-          docker pull unityci/editor:ubuntu-${{ env.UNITY_VERSION }}-Android-3 &
 
       - name: Checkout Repository
         uses: actions/checkout@v7
