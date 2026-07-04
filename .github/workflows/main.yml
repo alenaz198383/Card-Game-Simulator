@@ -93,7 +93,7 @@ jobs:
     steps:
       - name: Pre-pull Unity Docker image
         run: |
-          docker pull unityci/editor:${{ env.UNITY_VERSION }}-linux-il2cpp-3 &
+          docker pull unityci/editor:ubuntu-${{ env.UNITY_VERSION }}-linux-il2cpp-3 &
       - name: Checkout Repository
         uses: actions/checkout@v7
         with:
@@ -161,7 +161,7 @@ jobs:
     steps:
       - name: Pre-pull Unity Docker image
         run: |
-          docker pull unityci/editor:${{ env.UNITY_VERSION }}-linux-Android-3 &
+          docker pull unityci/editor:ubuntu-${{ env.UNITY_VERSION }}-Android-3 &
 
       - name: Checkout Repository
         uses: actions/checkout@v7
@@ -186,17 +186,12 @@ jobs:
             echo "Cache not found. Nothing to download - stop the job."
             exit 1
           fi
-          chmod +x Card-Game-Simulator_new/.github/scripts/helpers.sh && source Card-Game-Simulator_new/.github/scripts/helpers.sh
+          chmod +x Card-Game-Simulator_new/.github/scripts/helpers.sh
           mkdir -p "Card-Game-Simulator_new/Assets/Scripts/Cgs/Editor/"
-          check_folder "./" "false"
-          check_folder "Card-Game-Simulator/Assets/Scripts/Cgs/Editor/" "false"
-          check_folder "Card-Game-Simulator_new/Assets/Scripts/Cgs/Editor/" "false"
-          cp "Card-Game-Simulator/Assets/Scripts/Cgs/Editor/"* "Card-Game-Simulator_new/Assets/Scripts/Cgs/Editor/" && echo "Copied Simulator/Editor/ to Simulator_new/Editor/"
-          check_folder "Card-Game-Simulator_new/Assets/Scripts/Cgs/Editor/" "false"
-          rm -rf Card-Game-Simulator/ && echo "Removed Card-Game-Simulator/"
-          #check_folder "Card-Game-Simulator/" "false"
-          mv Card-Game-Simulator_new/ Card-Game-Simulator/ && source Card-Game-Simulator/.github/scripts/helpers.sh && echo "Moved Simulator_new to Simulator"
-          cd ./Card-Game-Simulator/ && source .github/scripts/helpers.sh
+          cp "Card-Game-Simulator/Assets/Scripts/Cgs/Editor/"* "Card-Game-Simulator_new/Assets/Scripts/Cgs/Editor/"
+          rm -rf Card-Game-Simulator/
+          mv Card-Game-Simulator_new/ Card-Game-Simulator/
+          cd ./Card-Game-Simulator/
           mkdir -p Assets/Plugins/Sentry/
           cat_file Assets/Plugins/Sentry/SentryCliOptions.asset
           echo "$SENTRY_CLI_OPTIONS" > Assets/Plugins/Sentry/SentryCliOptions.asset
@@ -214,15 +209,15 @@ jobs:
           echo "Detected version: $VERSION, code: $ANDROID_VERSION_CODE"
           echo "Detected version: ${{ env.VERSION }}, code: ${{ env.ANDROID_VERSION_CODE }}"
 
-      #- name: Free Disk Space
-      #  uses: jlumbroso/free-disk-space@v1.3.1
-      #  with:
-      #    tool-cache: true
-      #- name: Cache Library
-      #  uses: actions/cache@v6
-      #  with:
-      #    path: Library
-      #    key: Library-buildLinux-Android-${{ hashFiles('Packages/manifest.json', 'Packages/packages-lock.json', 'ProjectSettings/ProjectSettings.asset', 'ProjectSettings/ProjectVersion.txt') }}
+      - name: Free Disk Space
+        uses: jlumbroso/free-disk-space@v1.3.1
+        with:
+          tool-cache: true
+      - name: Cache Library
+        uses: actions/cache@v6
+        with:
+          path: Library
+          key: Library-buildLinux-Android-${{ hashFiles('Packages/manifest.json', 'Packages/packages-lock.json', 'ProjectSettings/ProjectSettings.asset', 'ProjectSettings/ProjectVersion.txt') }}
 
       - name: Before build timestamp
         if: ${{ always() }}
