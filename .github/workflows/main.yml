@@ -1,4 +1,17 @@
 name: Test, Build, and Deploy with GameCI
+
+permissions:
+  actions: write # To cancel runs (gh run cancel) and delete the cache
+  checks: write
+  contents: read # To read the code
+  pull-requests: read # To check for PR (gh pr list)
+
+env:
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  DOTNET_NOLOGO: true
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 concurrency: unity
 env:
   UNITY_VERSION: 6000.3.15f1
@@ -173,9 +186,13 @@ jobs:
           fi
           buildVersion=$(cat ProjectSettings/buildVersion.txt | tr -d '[:space:]')
           androidVersionCode=$(cat ProjectSettings/androidVersionCode.txt | tr -d '[:space:]')
-          echo "BUILD_VERSION=$buildVersion" >> $GITHUB_OUTPUT
-          echo "ANDROID_CODE=$androidVersionCode" >> $GITHUB_OUTPUT
+          echo "VERSION=$buildVersion" >> $GITHUB_OUTPUT
+          echo "ANDROID_VERSION_CODE=$androidVersionCode" >> $GITHUB_OUTPUT
           echo "Detected version: $buildVersion, code: $androidVersionCode"
+
+      - name: Versions
+        run: |
+          echo "Detected version: $VERSION, code: $ANDROID_VERSION_CODE"
 
       - name: Free Disk Space
         uses: jlumbroso/free-disk-space@v1.3.1
@@ -209,8 +226,8 @@ jobs:
           customParameters: -SENTRY_AUTH_TOKEN ${{ secrets.SENTRY_AUTH_TOKEN }} -SENTRY_ORG ${{ secrets.SENTRY_ORG }} -SENTRY_PROJECT ${{ secrets.SENTRY_PROJECT }}
           allowDirtyBuild: true
           versioning: Custom
-          version: ${{ env.BUILD_VERSION }}
-          androidVersionCode: ${{ env.ANDROID_CODE }}
+          version: ${{ env.VERSION }}
+          androidVersionCode: ${{ env.ANDROID_VERSION_CODE }}
           buildMethod: Cgs.Editor.BuildCgs.BuildWithOptions
           androidExportType: ${{ matrix.exportMode == 'apk' && 'androidPackage' || 'androidAppBundle' }}
           androidKeystoreName: 'my-release-key.jks'
