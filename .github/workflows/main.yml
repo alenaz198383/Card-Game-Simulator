@@ -194,7 +194,7 @@ jobs:
           cp "Card-Game-Simulator/Assets/Scripts/Cgs/Editor/"* "Card-Game-Simulator_new/Assets/Scripts/Cgs/Editor/" && echo "Copied Simulator/Editor/ to Simulator_new/Editor/"
           check_folder "Card-Game-Simulator_new/Assets/Scripts/Cgs/Editor/" "false"
           rm -rf Card-Game-Simulator/ && echo "Removed Card-Game-Simulator/"
-          check_folder "Card-Game-Simulator/" "false"
+          #check_folder "Card-Game-Simulator/" "false"
           mv Card-Game-Simulator_new/ Card-Game-Simulator/ && source Card-Game-Simulator/.github/scripts/helpers.sh && echo "Moved Simulator_new to Simulator"
           cd ./Card-Game-Simulator/ && source .github/scripts/helpers.sh
           mkdir -p Assets/Plugins/Sentry/
