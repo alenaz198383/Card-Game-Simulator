@@ -223,6 +223,29 @@ jobs:
           echo "Detected version: $VERSION, code: $ANDROID_VERSION_CODE"
           echo "Detected version: ${{ env.VERSION }}, code: ${{ env.ANDROID_VERSION_CODE }}"
 
+      - name: Restore Library cache from R2
+        id: restore_library_cache
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-east-1
+          R2_BUCKET: ${{ secrets.R2_BUCKET_NAME }}
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+          CACHE_KEY: Library-Android-${{ hashFiles('Packages/manifest.json', 'Packages/packages-lock.json', 'ProjectSettings/ProjectSettings.asset', 'ProjectSettings/ProjectVersion.txt') }}
+        run: |
+          echo "Looking for cache: $CACHE_KEY"
+          if aws s3 cp "s3://$R2_BUCKET/$CACHE_KEY" Library.tar.zst --endpoint-url $R2_ENDPOINT --quiet; then
+            echo "Cache found, extracting..."
+            tar -I zstd -xf Library.tar.zst
+            rm Library.tar.zst
+            source .github/scripts/helpers.sh
+            check_folder ./
+            check_folder "Library/"
+            rm -rf Library/
+          else
+            echo "Cache not found. Nothing to download."
+          fi
+
       - name: Cache Library
         uses: actions/cache@v6
         with:
@@ -253,7 +276,7 @@ jobs:
           versioning: Custom
           version: ${{ env.VERSION }}
           androidVersionCode: ${{ env.ANDROID_VERSION_CODE }}
-          buildMethod: Cgs.Editor.BuildCgs.BuildWithOptions
+          buildProfile: ${{ matrix.exportMode == 'apk' && 'Assets/Settings/Build Profiles/Android_Release_APK.asset' || 'Assets/Settings/Build Profiles/Android_Release_AAB.asset' }}
           androidExportType: ${{ matrix.exportMode == 'apk' && 'androidPackage' || 'androidAppBundle' }}
           androidKeystoreName: 'my-release-key.jks'
           androidKeystoreBase64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
@@ -310,3 +333,27 @@ jobs:
           echo "- Project Version (buildVersion): \`${{ steps.buildStep.outputs.buildVersion }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- Android Version Code: \`${{ steps.buildStep.outputs.androidVersionCode }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- Build Step Exit Code: \`${{ steps.buildStep.outputs.engineExitCode }}\`" >> $GITHUB_STEP_SUMMARY
+
+      - name: Save Library cache to R2
+        id: save_library_cache
+        if: steps.buildStep.outcome == 'success'
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-east-1
+          R2_BUCKET: ${{ secrets.R2_BUCKET_NAME }}
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+          CACHE_KEY: Library-Android-${{ hashFiles('Packages/manifest.json', 'Packages/packages-lock.json', 'ProjectSettings/ProjectSettings.asset', 'ProjectSettings/ProjectVersion.txt') }}
+        run: |
+          if [ -d "Library" ]; then
+            echo "Saving cache: $CACHE_KEY"
+            tar -I 'zstd -9' -cf Library.tar.zst Library
+            aws s3 cp Library.tar.zst "s3://$R2_BUCKET/$CACHE_KEY" --endpoint-url $R2_ENDPOINT --quiet
+            echo "Cache saved successfully."
+            source .github/scripts/helpers.sh
+            check_folder ./
+            check_folder "Library/"
+            check_file   "Library.tar.zst"
+          else
+            echo "Library folder not found, skipping cache save."
+          fi
