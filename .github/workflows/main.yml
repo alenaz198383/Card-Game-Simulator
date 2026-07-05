@@ -19,10 +19,20 @@ on:
       - published
   workflow_dispatch:
     inputs:
+      # Main job
       run_tests:
         description: 'Run Tests'
         type: boolean
         default: false
+      # build jobs
+      run_build_jobs:
+        description: 'Run Build Jobs'
+        type: boolean
+        default: true
+      run_buildAndroid_job:
+        description: 'Job: Android Build'
+        type: boolean
+        default: true
       android_export_types:
         description: 'Android Export Types'
         type: choice
@@ -31,6 +41,10 @@ on:
           - apk
           - aab
         default: apk
+      run_buildWindows_job:
+        description: 'Job: Windows Build'
+        type: boolean
+        default: false
 
 jobs:
   check_secrets:
@@ -151,6 +165,9 @@ jobs:
     runs-on: ubuntu-latest
     # needs: [tests, lint]
     needs: [check_secrets]
+    if: |
+      github.event_name == 'pull_request' ||
+      (github.event_name == 'workflow_dispatch' && inputs.run_buildAndroid_job && inputs.run_build_jobs)
     strategy:
       fail-fast: false
       matrix:
