@@ -1,0 +1,359 @@
+name: tesst
+
+permissions:
+  actions: write # To cancel runs (gh run cancel) and delete the cache
+  checks: write
+  contents: read # To read the code
+  pull-requests: read # To check for PR (gh pr list)
+
+concurrency: unity
+env:
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  DOTNET_NOLOGO: true
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  UNITY_VERSION: 6000.3.15f1
+on:
+  release:
+    types:
+      - published
+  workflow_dispatch:
+    inputs:
+      # Main job
+      run_tests:
+        description: 'Run Tests'
+        type: boolean
+        default: false
+      # build jobs
+      run_build_jobs:
+        description: 'Run Build Jobs'
+        type: boolean
+        default: true
+      run_buildAndroid_job:
+        description: 'Job: Android Build'
+        type: boolean
+        default: true
+      android_export_types:
+        description: 'Android Export Types'
+        type: choice
+        options:
+          - both
+          - apk
+          - aab
+        default: aab
+      run_buildWindows_job:
+        description: 'Job: Windows Build'
+        type: boolean
+        default: false
+
+jobs:
+  check_secrets:
+    name: 🔑🩺 Check GitHub Secrets
+    timeout-minutes: 3
+    if: |
+      !contains(fromJSON('["dependabot", "renovate"]'), github.actor) &&
+      !startsWith(github.event.pull_request.title, 'chore(deps') &&
+      !startsWith(github.event.pull_request.title, 'fix(deps')
+    runs-on: ubuntu-latest
+    # runs-on: self-hosted
+    steps:
+      - name: 🔑 Check Unity license
+        id: checklicense
+        env:
+          UNITY_SERIAL_PERSONAL: ${{ secrets.UNITY_SERIAL_PERSONAL }}
+          UNITY_EMAIL_PERSONAL: ${{ secrets.UNITY_EMAIL_PERSONAL }}
+          UNITY_PASSWORD_PERSONAL: ${{ secrets.UNITY_PASSWORD_PERSONAL }}
+        run: |
+          missing_secrets=""
+          [ -z "$UNITY_SERIAL_PERSONAL" ] && missing_secrets="$missing_secrets UNITY_SERIAL_PERSONAL"
+          [ -z "$UNITY_EMAIL_PERSONAL" ] && missing_secrets="$missing_secrets UNITY_EMAIL_PERSONAL"
+          [ -z "$UNITY_PASSWORD_PERSONAL" ] && missing_secrets="$missing_secrets UNITY_PASSWORD_PERSONAL"
+          if [ -z "$missing_secrets" ]; then
+            echo "✅ All required 'UNITY_' secrets are present"
+          else
+            echo "❌ Missing 'UNITY_' secrets:$missing_secrets"
+            exit 1
+          fi
+
+      - name: 🩺 Check 'ANDROID_' secrets
+        id: check_android_secrets
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASS: ${{ secrets.ANDROID_KEYSTORE_PASS }}
+          ANDROID_KEYALIAS_PASS: ${{ secrets.ANDROID_KEYALIAS_PASS }}
+        run: |
+          missing_secrets=""
+          [ -z "$ANDROID_KEYSTORE_BASE64" ] && missing_secrets="$missing_secrets ANDROID_KEYSTORE_BASE64"
+          [ -z "$ANDROID_KEYSTORE_PASS" ] && missing_secrets="$missing_secrets ANDROID_KEYSTORE_PASS"
+          [ -z "$ANDROID_KEYALIAS_PASS" ] && missing_secrets="$missing_secrets ANDROID_KEYALIAS_PASS"
+          if [ -z "$missing_secrets" ]; then
+            echo "✅ All required 'ANDROID_' secrets are present"
+          else
+            echo "❌ Missing 'ANDROID_' secrets:$missing_secrets"
+            exit 1
+          fi
+
+  tests:
+    name: Unit Tests
+    needs: [check_secrets]
+    if: |
+      github.event_name == 'pull_request' ||
+      (github.event_name == 'workflow_dispatch' && inputs.run_tests)
+    runs-on: ubuntu-latest
+    permissions:
+      checks: write
+      contents: write
+    timeout-minutes: 30
+    steps:
+      - name: Free Disk Space
+        uses: jlumbroso/free-disk-space@v1.3.1
+        with:
+          large-packages: false
+
+      - name: Checkout Repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Restore cache from R2
+        id: restore_cache_r2
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-east-1
+          R2_BUCKET: ${{ secrets.R2_BUCKET_NAME }}
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+        run: |
+          cd ..
+          rm -rf Card-Game-Simulator/
+          mkdir -p Card-Game-Simulator/
+          if aws s3 cp "s3://$R2_BUCKET/cache.zip" cache.zip --endpoint-url $R2_ENDPOINT --quiet; then
+            echo "Cache found, extracting..."
+            unzip -q cache.zip -d ./Card-Game-Simulator/ && rm cache.zip && cd ./Card-Game-Simulator/
+          else
+            echo "Cache not found. Nothing to download - stop the job."
+            exit 1
+          fi
+
+      - name: Cache Library
+        uses: actions/cache@v6
+        with:
+          path: Library
+          key: Library-test-${{ hashFiles('Packages/manifest.json', 'Packages/packages-lock.json', 'ProjectSettings/ProjectSettings.asset', 'ProjectSettings/ProjectVersion.txt') }}
+
+      - name: Run EditMode Tests
+        uses: game-ci/unity-test-runner@v4.3.1
+        env:
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL_PERSONAL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD_PERSONAL }}
+          UNITY_SERIAL: ${{ secrets.UNITY_SERIAL_PERSONAL }}
+        with:
+          testMode: editmode
+
+      #- name: Run PlayMode Tests
+      #  uses: game-ci/unity-test-runner@v4.3.1
+      #  env:
+      #    UNITY_EMAIL: ${{ secrets.UNITY_EMAIL_PERSONAL }}
+      #    UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD_PERSONAL }}
+      #    UNITY_SERIAL: ${{ secrets.UNITY_SERIAL_PERSONAL }}
+      #  with:
+      #    testMode: playmode
+      #    githubToken: ${{ secrets.GITHUB_TOKEN }}
+
+  buildAndroid:
+    name: 🦺 Build for Android (${{ matrix.exportMode }})
+    runs-on: ubuntu-latest
+    # needs: [tests, lint]
+    needs: [check_secrets]
+    if: |
+      github.event_name == 'pull_request' ||
+      (github.event_name == 'workflow_dispatch' && inputs.run_buildAndroid_job && inputs.run_build_jobs)
+    strategy:
+      fail-fast: false
+      matrix:
+        exportMode: ${{ (github.event_name == 'workflow_dispatch' && inputs.android_export_types == 'apk' && fromJSON('["apk"]')) || (github.event_name == 'workflow_dispatch' && inputs.android_export_types == 'aab' && fromJSON('["aab"]')) || fromJSON('["apk", "aab"]') }}
+    outputs:
+      buildVersion: ${{ steps.buildStep.outputs.buildVersion }}
+    timeout-minutes: 90
+    steps:
+      - name: Free Disk Space
+        uses: jlumbroso/free-disk-space@v1.3.1
+        with:
+          tool-cache: true
+
+      - name: Checkout Repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Restore cache from R2
+        id: restore_cache_r2
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-east-1
+          R2_BUCKET: ${{ secrets.R2_BUCKET_NAME }}
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+          SENTRY_CLI_OPTIONS: ${{ secrets.SENTRY_CLI_OPTIONS }}
+        run: |
+          cd ..
+          if aws s3 cp "s3://$R2_BUCKET/cache.zip" cache.zip --endpoint-url $R2_ENDPOINT --quiet; then
+            echo "Cache found, extracting..."
+            unzip -q cache.zip -d ./Card-Game-Simulator_new/ && rm cache.zip
+          else
+            echo "Cache not found. Nothing to download - stop the job."
+            exit 1
+          fi
+          chmod +x Card-Game-Simulator_new/.github/scripts/helpers.sh
+          mkdir -p "Card-Game-Simulator_new/Assets/Scripts/Cgs/Editor/"
+          cp "Card-Game-Simulator/Assets/Scripts/Cgs/Editor/"* "Card-Game-Simulator_new/Assets/Scripts/Cgs/Editor/"
+          rm -rf Card-Game-Simulator/
+          mv Card-Game-Simulator_new/ Card-Game-Simulator/
+          cd ./Card-Game-Simulator/
+          mkdir -p Assets/Plugins/Sentry/
+          echo "$SENTRY_CLI_OPTIONS" > Assets/Plugins/Sentry/SentryCliOptions.asset
+          androidVersionCode=$(cat ProjectSettings/androidVersionCode.txt | tr -d '[:space:]')
+          buildVersion=$(cat ProjectSettings/buildVersion.txt | tr -d '[:space:]')
+          echo "ANDROID_VERSION_CODE=$androidVersionCode" >> $GITHUB_ENV
+          echo "VERSION=$buildVersion" >> $GITHUB_ENV
+          echo "Detected version: $buildVersion, code: $androidVersionCode"
+
+      - name: Versions
+        run: |
+          echo "Detected version: $VERSION, code: $ANDROID_VERSION_CODE"
+          echo "Detected version: ${{ env.VERSION }}, code: ${{ env.ANDROID_VERSION_CODE }}"
+
+      #- name: Restore Library cache from R2
+      #  id: restore_library_cache
+      #  env:
+      #    AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      #    AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      #    AWS_DEFAULT_REGION: us-east-1
+      #    R2_BUCKET: ${{ secrets.R2_BUCKET_NAME }}
+      #    R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+      #    CACHE_KEY: Library-Android-${{ hashFiles('Packages/manifest.json', 'Packages/packages-lock.json', 'ProjectSettings/ProjectSettings.asset', 'ProjectSettings/ProjectVersion.txt', 'Assets/Settings/Build Profiles/Android_Release_APK.asset', 'Assets/Settings/Build Profiles/Android_Release_AAB.asset') }}
+      #  run: |
+      #    echo "Looking for cache: $CACHE_KEY"
+      #    if aws s3 cp "s3://$R2_BUCKET/$CACHE_KEY" Library.tar.zst --endpoint-url $R2_ENDPOINT --quiet; then
+      #      echo "Cache found, extracting..."
+      #      tar -I zstd -xf Library.tar.zst
+      #      rm Library.tar.zst
+      #      source .github/scripts/helpers.sh
+      #      check_folder ./
+      #      check_folder "Library/"
+      #      rm -rf Library/
+      #    else
+      #      echo "Cache not found. Nothing to download."
+      #    fi
+
+      - name: Cache Library
+        uses: actions/cache@v6
+        with:
+          path: Library
+          key: Library-buildLinux-Android-${{ hashFiles('Packages/manifest.json', 'Packages/packages-lock.json', 'ProjectSettings/ProjectSettings.asset', 'ProjectSettings/ProjectVersion.txt', 'Assets/Settings/Build Profiles/Android_Release_APK.asset', 'Assets/Settings/Build Profiles/Android_Release_AAB.asset') }}
+
+      - name: Before build timestamp
+        if: ${{ always() }}
+        run: |
+          date -u
+          df -h
+          free -h || true
+
+      - name: 🦺 Build Android ${{ matrix.exportMode }}
+        id: buildStep
+        uses: game-ci/unity-builder@v5.0.0
+        env:
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL_PERSONAL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD_PERSONAL }}
+          UNITY_SERIAL: ${{ secrets.UNITY_SERIAL_PERSONAL }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+        with:
+          targetPlatform: Android
+          customParameters: -SENTRY_AUTH_TOKEN ${{ secrets.SENTRY_AUTH_TOKEN }} -SENTRY_ORG ${{ secrets.SENTRY_ORG }} -SENTRY_PROJECT ${{ secrets.SENTRY_PROJECT }}
+          allowDirtyBuild: true
+          versioning: Custom
+          version: ${{ env.VERSION }}
+          androidVersionCode: ${{ env.ANDROID_VERSION_CODE }}
+          buildProfile: ${{ matrix.exportMode == 'apk' && 'Assets/Settings/Build Profiles/Android_Release_APK.asset' || 'Assets/Settings/Build Profiles/Android_Release_AAB.asset' }}
+          androidExportType: ${{ matrix.exportMode == 'apk' && 'androidPackage' || 'androidAppBundle' }}
+          androidKeystoreName: 'my-release-key.jks'
+          androidKeystoreBase64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          androidKeystorePass: ${{ secrets.ANDROID_KEYSTORE_PASS }}
+          androidKeyaliasName: my-key-alias
+          androidKeyaliasPass: ${{ secrets.ANDROID_KEYALIAS_PASS }}
+          androidTargetSdkVersion: AndroidApiLevel36
+          androidSymbolType: public
+
+      - name: After build timestamp
+        if: ${{ always() }}
+        run: |
+          date -u
+          df -h
+          free -h || true
+
+      - name: Print build outcome
+        if: ${{ always() }}
+        run: |
+          echo "build outcome: ${{ steps.build.outcome }}"
+          echo "build conclusion: ${{ steps.build.conclusion }}"
+
+      - name: Upload Build
+        uses: actions/upload-artifact@v7
+        if: steps.buildStep.outcome != 'skipped'
+        with:
+          path: build/Android
+          name: cgs-Android-${{ matrix.exportMode }}
+          retention-days: 1
+
+      #- name: 📈 Upload AAB to Sentry for Size Tracking
+      #  if: steps.buildStep.outcome == 'success' && matrix.exportMode == 'aab'
+      #  env:
+      #    SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+      #    SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+      #    SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+      #  run: |
+      #    AAB_FILE=$(find build -name "*.aab" | head -n 1)
+      #    if [ -n "$AAB_FILE" ]; then
+      #      echo "Found AAB: $AAB_FILE"
+      #      curl -sL https://sentry.io/get-cli/ | bash
+      #      sentry-cli build upload "$AAB_FILE" \
+      #        --org "$SENTRY_ORG" \
+      #        --project "$SENTRY_PROJECT" \
+      #        --build-configuration Release
+      #    else
+      #      echo "AAB file not found."
+      #    fi
+
+      - name: Post android build info
+        if: always()
+        run: |
+          echo "##### Android Build Info" >> $GITHUB_STEP_SUMMARY
+          echo "- Project Version (buildVersion): \`${{ steps.buildStep.outputs.buildVersion }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Android Version Code: \`${{ steps.buildStep.outputs.androidVersionCode }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Build Step Exit Code: \`${{ steps.buildStep.outputs.engineExitCode }}\`" >> $GITHUB_STEP_SUMMARY
+
+      #- name: Save Library cache to R2
+      #  id: save_library_cache
+      #  if: steps.buildStep.outcome == 'success'
+      #  env:
+      #    AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      #    AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      #    AWS_DEFAULT_REGION: us-east-1
+      #    R2_BUCKET: ${{ secrets.R2_BUCKET_NAME }}
+      #    R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+      #    CACHE_KEY: Library-Android-${{ hashFiles('Packages/manifest.json', 'Packages/packages-lock.json', 'ProjectSettings/ProjectSettings.asset', 'ProjectSettings/ProjectVersion.txt', 'Assets/Settings/Build Profiles/Android_Release_APK.asset', 'Assets/Settings/Build Profiles/Android_Release_AAB.asset') }}
+      #  run: |
+      #    if [ -d "Library" ]; then
+      #      echo "Saving cache: $CACHE_KEY"
+      #      tar -I 'zstd -9' -cf Library.tar.zst Library
+      #      aws s3 cp Library.tar.zst "s3://$R2_BUCKET/$CACHE_KEY" --endpoint-url $R2_ENDPOINT --quiet
+      #      echo "Cache saved successfully."
+      #      source .github/scripts/helpers.sh
+      #      check_folder ./
+      #      check_folder "Library/"
+      #      check_file   "Library.tar.zst"
+      #    else
+      #      echo "Library folder not found, skipping cache save."
+      #    fi
