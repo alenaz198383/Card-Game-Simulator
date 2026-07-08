@@ -1,4 +1,4 @@
-name: Test, Build, and Deploy with GameCI
+name: tesst
 
 permissions:
   actions: write # To cancel runs (gh run cancel) and delete the cache
