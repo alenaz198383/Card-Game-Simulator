@@ -40,7 +40,7 @@ on:
           - both
           - apk
           - aab
-        default: apk
+        default: aab
       run_buildWindows_job:
         description: 'Job: Windows Build'
         type: boolean
@@ -307,24 +307,24 @@ jobs:
           name: cgs-Android-${{ matrix.exportMode }}
           retention-days: 1
 
-      - name: 📈 Upload AAB to Sentry for Size Tracking
-        if: steps.buildStep.outcome == 'success' && matrix.exportMode == 'aab'
-        env:
-          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
-          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
-          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
-        run: |
-          AAB_FILE=$(find build -name "*.aab" | head -n 1)
-          if [ -n "$AAB_FILE" ]; then
-            echo "Found AAB: $AAB_FILE"
-            curl -sL https://sentry.io/get-cli/ | bash
-            sentry-cli build upload "$AAB_FILE" \
-              --org "$SENTRY_ORG" \
-              --project "$SENTRY_PROJECT" \
-              --build-configuration Release
-          else
-            echo "AAB file not found."
-          fi
+      #- name: 📈 Upload AAB to Sentry for Size Tracking
+      #  if: steps.buildStep.outcome == 'success' && matrix.exportMode == 'aab'
+      #  env:
+      #    SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+      #    SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+      #    SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+      #  run: |
+      #    AAB_FILE=$(find build -name "*.aab" | head -n 1)
+      #    if [ -n "$AAB_FILE" ]; then
+      #      echo "Found AAB: $AAB_FILE"
+      #      curl -sL https://sentry.io/get-cli/ | bash
+      #      sentry-cli build upload "$AAB_FILE" \
+      #        --org "$SENTRY_ORG" \
+      #        --project "$SENTRY_PROJECT" \
+      #        --build-configuration Release
+      #    else
+      #      echo "AAB file not found."
+      #    fi
 
       - name: Post android build info
         if: always()
