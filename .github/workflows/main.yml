@@ -247,7 +247,11 @@ jobs:
         uses: actions/cache@v6
         with:
           path: Library
-          key: Library-Android-${{ matrix.exportMode == 'apk' && 'apk' || 'aab' }}-${{ hashFiles('Packages/manifest.json', 'Packages/packages-lock.json', 'ProjectSettings/ProjectSettings.asset', 'ProjectSettings/ProjectVersion.txt', 'Assets/Settings/Build Profiles/Android_Release_APK.asset', 'Assets/Settings/Build Profiles/Android_Release_AAB.asset') }}
+          key: Library-Android-${{ hashFiles('Packages/manifest.json', 'Packages/packages-lock.json', 'ProjectSettings/ProjectSettings.asset', 'ProjectSettings/ProjectVersion.txt', 'Assets/Settings/Build Profiles/Android_Release_APK.asset', 'Assets/Settings/Build Profiles/Android_Release_AAB.asset') }}-${{ matrix.exportMode == 'apk' && 'apk' || 'aab' }}
+          restore-keys: |
+            Library-Android-${{ hashFiles('Packages/manifest.json', 'Packages/packages-lock.json', 'ProjectSettings/ProjectSettings.asset', 'ProjectSettings/ProjectVersion.txt', 'Assets/Settings/Build Profiles/Android_Release_APK.asset', 'Assets/Settings/Build Profiles/Android_Release_AAB.asset') }}-
+            Library-Android-aab-${{ hashFiles('Packages/manifest.json', 'Packages/packages-lock.json', 'ProjectSettings/ProjectSettings.asset', 'ProjectSettings/ProjectVersion.txt', 'Assets/Settings/Build Profiles/Android_Release_APK.asset', 'Assets/Settings/Build Profiles/Android_Release_AAB.asset') }}
+            Library-Android-apk-${{ hashFiles('Packages/manifest.json', 'Packages/packages-lock.json', 'ProjectSettings/ProjectSettings.asset', 'ProjectSettings/ProjectVersion.txt', 'Assets/Settings/Build Profiles/Android_Release_APK.asset', 'Assets/Settings/Build Profiles/Android_Release_AAB.asset') }}
 
       - name: Before build timestamp
         if: ${{ always() }}
@@ -313,14 +317,36 @@ jobs:
         run: |
           AAB_FILE=$(find build -name "*.aab" | head -n 1)
           if [ -n "$AAB_FILE" ]; then
-            echo "Found AAB: $AAB_FILE"
+            echo "All '*.aab' files found:"
+            find build -name "*.aab"
+            echo "Using: $AAB_FILE"
+            echo "----- 'sentry-cli' installation executed... -----"
             curl -sL https://sentry.io/get-cli/ | bash
+            echo "----- 'sentry-cli' installation completed -----"
+            echo "----- Uploading AAB to Sentry executed... -----"
             sentry-cli build upload "$AAB_FILE" \
               --org "$SENTRY_ORG" \
               --project "$SENTRY_PROJECT" \
-              --build-configuration Release
+              --build-configuration Release \
+              --sha "${{ github.sha }}"
+            echo "----- Uploading AAB to Sentry completed -----"
+            # Upload ProGuard mapping if it exists
+            MAPPING_FILE=$(find build -name "mapping.txt" | head -n 1)
+            if [ -n "$MAPPING_FILE" ]; then
+              echo "All 'mapping.txt' files found:"
+              find build -name "mapping.txt"
+              echo "Using: $MAPPING_FILE"
+              echo "----- Uploading mapping to Sentry executed... -----"
+              find build -name "mapping.txt" | xargs sentry-cli upload-proguard \
+                --org "$SENTRY_ORG" \
+                --project "$SENTRY_PROJECT"
+              echo "----- Uploading mapping to Sentry completed -----"
+            else
+              echo "No mapping.txt found (minification may be disabled)"
+            fi
           else
             echo "AAB file not found."
+            exit 1
           fi
 
       - name: Post android build info
