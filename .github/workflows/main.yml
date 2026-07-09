@@ -301,7 +301,7 @@ jobs:
         if: steps.buildStep.outcome != 'skipped'
         with:
           path: build/Android
-          name: cgs-Android-${{ matrix.exportMode }}
+          name: cgs-Android-${{ matrix.exportMode }}-${{ env.ANDROID_VERSION_CODE }}
           retention-days: 1
 
       - name: 📈 Upload AAB to Sentry for Size Tracking
