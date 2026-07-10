@@ -194,6 +194,35 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Restore cache from R2
+        id: restore_cache_r2
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-east-1
+          R2_BUCKET: ${{ secrets.R2_BUCKET_NAME }}
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+          SENTRY_CLI_OPTIONS: ${{ secrets.SENTRY_CLI_OPTIONS }}
+        run: |
+          cd ..
+          if aws s3 cp "s3://$R2_BUCKET/cache.zip" cache.zip --endpoint-url $R2_ENDPOINT --quiet; then
+            echo "Cache found, extracting..."
+            unzip -q cache.zip -d ./Card-Game-Simulator_new/ && rm cache.zip
+          else
+            echo "Cache not found. Nothing to download - stop the job."
+            exit 1
+          fi
+          rm -rf Card-Game-Simulator/
+          mv Card-Game-Simulator_new/ Card-Game-Simulator/
+          cd ./Card-Game-Simulator/
+          mkdir -p Assets/Plugins/Sentry/
+          echo "$SENTRY_CLI_OPTIONS" > Assets/Plugins/Sentry/SentryCliOptions.asset
+          androidVersionCode=$(cat ProjectSettings/androidVersionCode.txt | tr -d '[:space:]')
+          buildVersion=$(cat ProjectSettings/buildVersion.txt | tr -d '[:space:]')
+          echo "ANDROID_VERSION_CODE=$androidVersionCode" >> $GITHUB_ENV
+          echo "VERSION=$buildVersion" >> $GITHUB_ENV
+          echo "Detected version: $buildVersion, code: $androidVersionCode"
+
       - name: Extract Build Versions (File or Input)
         run: |
           CUSTOM_VER="${{ inputs.custom_build_version }}"
@@ -252,35 +281,6 @@ jobs:
         run: |
           echo "Final VERSION: ${{ env.CUSTOM_VERSION }}"
           echo "Final ANDROID_VERSION_CODE: ${{ env.CUSTOM_ANDROID_VERSION_CODE }}"
-
-      - name: Restore cache from R2
-        id: restore_cache_r2
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: us-east-1
-          R2_BUCKET: ${{ secrets.R2_BUCKET_NAME }}
-          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
-          SENTRY_CLI_OPTIONS: ${{ secrets.SENTRY_CLI_OPTIONS }}
-        run: |
-          cd ..
-          if aws s3 cp "s3://$R2_BUCKET/cache.zip" cache.zip --endpoint-url $R2_ENDPOINT --quiet; then
-            echo "Cache found, extracting..."
-            unzip -q cache.zip -d ./Card-Game-Simulator_new/ && rm cache.zip
-          else
-            echo "Cache not found. Nothing to download - stop the job."
-            exit 1
-          fi
-          rm -rf Card-Game-Simulator/
-          mv Card-Game-Simulator_new/ Card-Game-Simulator/
-          cd ./Card-Game-Simulator/
-          mkdir -p Assets/Plugins/Sentry/
-          echo "$SENTRY_CLI_OPTIONS" > Assets/Plugins/Sentry/SentryCliOptions.asset
-          androidVersionCode=$(cat ProjectSettings/androidVersionCode.txt | tr -d '[:space:]')
-          buildVersion=$(cat ProjectSettings/buildVersion.txt | tr -d '[:space:]')
-          echo "ANDROID_VERSION_CODE=$androidVersionCode" >> $GITHUB_ENV
-          echo "VERSION=$buildVersion" >> $GITHUB_ENV
-          echo "Detected version: $buildVersion, code: $androidVersionCode"
 
       #- name: Restore Library cache from R2
       #  id: restore_library_cache
