@@ -343,36 +343,9 @@ jobs:
         run: |
           if [ -d "build/Android" ]; then
             mkdir -p artifacts
-            arch_file_name="cgs-Android-${{ matrix.exportMode }}-${{ env.ANDROID_VERSION_CODE }}"
-            zip_file_name="$arch_file_name.zip"
-            zst_file_name="$arch_file_name.tar.zst"
-            #
-            echo ""; echo "----- Zipping started ... -----"
-            zip -r "artifacts/$zip_file_name" build/Android --quiet
-            echo "----- Zipping completed. -----"; echo ""
-            #
-            echo ""; echo "----- Uploading zip started ... -----"
-            aws s3 cp "artifacts/$zip_file_name" "s3://$R2_BUCKET/$zip_file_name" --endpoint-url $R2_ENDPOINT --quiet
-            echo "----- Uploading zip completed. -----"; echo ""
-            #
-            source .github/scripts/helpers.sh
-            check_folder ./
-            check_folder "build/Android/"
-            check_folder "artifacts/"
-            check_file   "artifacts/$zip_file_name"
-            #
-            echo ""; echo "----- ZSTing started ... -----"
+            zst_file_name="cgs-Android-${{ matrix.exportMode }}-${{ env.ANDROID_VERSION_CODE }}.tar.zst"
             tar -I 'zstd -9' -cf "artifacts/$zst_file_name" build/Android
-            echo "----- ZSTing completed. -----"; echo ""
-            #
-            echo ""; echo "----- Uploading zst started ... -----"
             aws s3 cp "artifacts/$zst_file_name" "s3://$R2_BUCKET/$zst_file_name" --endpoint-url $R2_ENDPOINT --quiet
-            echo "----- Uploading zst completed. -----"; echo ""
-            #
-            check_folder ./
-            check_folder "build/Android/"
-            check_folder "artifacts/"
-            check_file   "artifacts/$zst_file_name"
           else
             echo "'build/Android' folder not found, skipping '${{ matrix.exportMode }}' save."
           fi
@@ -455,23 +428,6 @@ jobs:
         run: |
           AAB_FILE=$(find build -name "*.aab" | head -n 1)
           if [ -n "$AAB_FILE" ]; then
-            #
-            chmod +x .github/scripts/helpers.sh && source .github/scripts/helpers.sh
-            check_folder "build/Android/"
-            check_folder "build/Android/symbols/"
-            if [ -d "build/Android/symbols/build/" ]; then
-              echo "All '*.usym.*' files in 'build' found:"
-              find build -name "*.usym.*"
-              mv build/Android/symbols/build/ ./bak/
-              echo "Copied 'build/Android/symbols/build/' folder to './bak/' folder."
-              echo ""; echo "----- All '*.usym.*' files in 'bak' found: -----"
-              find bak -name "*.usym.*"; echo ""
-              echo ""; echo "----- All '*.usym.*' files in 'build' found: -----"
-              find build -name "*.usym.*"; echo ""
-            else
-              echo "No 'build/Android/symbols/build/' folder found - nothing to move to 'bak' folder. Just continue."
-            fi
-            #
             # Upload '.usym' files
             USYM_FILE=$(find build -name "*.usym.*" | head -n 1)
             if [ -n "$USYM_FILE" ]; then
@@ -482,17 +438,40 @@ jobs:
                 --org "$SENTRY_ORG" \
                 --project "$SENTRY_PROJECT" \
                 --il2cpp-mapping \
-                build/Android/symbols/ \
+                build/Android/symbols/src/ \
                 ${{ inputs.sentry_debug == true && '--log-level debug' || '' }}
               echo "----- Uploading '.usym' files to Sentry completed -----"; echo ""
             else
               echo "No '*.usym.*' found"
             fi
+          else
+            echo "AAB file not found."
+            exit 1
+          fi
+
+      - name: 📈 Check '*.usym.*'
+        continue-on-error: true
+        if: always() && steps.buildStep.outcome == 'success' && matrix.exportMode == 'aab'
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+        run: |
+          AAB_FILE=$(find build -name "*.aab" | head -n 1)
+          if [ -n "$AAB_FILE" ]; then
             #
-            if [ -d "bak/" ]; then
-              mv ./bak/ build/Android/symbols/build/
+            if [ -d "build/Android/symbols/build/" ]; then
+              ls -alF "build/Android/symbols/"
+              ls -alF "build/Android/symbols/build/"
+              echo "All '*.usym.*' files in 'build' found:"
+              find build -name "*.usym.*"
+              rm -rf build/Android/symbols/build/
+              echo ""; echo "Removed 'build/Android/symbols/build/' folder."; echo ""
+              ls -alF "build/Android/symbols/"
+              echo ""; echo "----- All '*.usym.*' files in 'build' found: -----"
+              find build -name "*.usym.*"
             else
-              echo "No 'bak/' folder found - nothing to move back to 'build' folder. Just continue."
+              echo "No 'build/Android/symbols/build/' folder found - nothing to remove. Just continue."
             fi
           else
             echo "AAB file not found."
