@@ -348,7 +348,7 @@ jobs:
             zst_file_name="$arch_file_name.tar.zst"
             #
             echo ""; echo "----- Zipping started ... -----"
-            zip -r "artifacts/$zip_file_name" build/Android
+            zip -r "artifacts/$zip_file_name" build/Android --quiet
             echo "----- Zipping completed. -----"; echo ""
             #
             echo ""; echo "----- Uploading zip started ... -----"
@@ -362,7 +362,7 @@ jobs:
             check_file   "artifacts/$zip_file_name"
             #
             echo ""; echo "----- ZSTing started ... -----"
-            zip -r "artifacts/$zst_file_name" build/Android
+            tar -I 'zstd -9' -cf "artifacts/$zst_file_name" build/Android
             echo "----- ZSTing completed. -----"; echo ""
             #
             echo ""; echo "----- Uploading zst started ... -----"
@@ -445,7 +445,7 @@ jobs:
             exit 1
           fi
 
-      - name: 📈 Upload '*.usym.*.*' to Sentry
+      - name: 📈 Upload '*.usym.*' to Sentry
         continue-on-error: true
         if: steps.buildStep.outcome == 'success' && matrix.exportMode == 'aab'
         env:
@@ -455,21 +455,44 @@ jobs:
         run: |
           AAB_FILE=$(find build -name "*.aab" | head -n 1)
           if [ -n "$AAB_FILE" ]; then
+            #
+            chmod +x .github/scripts/helpers.sh && source .github/scripts/helpers.sh
+            check_folder "build/Android/"
+            check_folder "build/Android/symbols/"
+            if [ -d "build/Android/symbols/build/" ]; then
+              echo "All '*.usym.*' files in 'build' found:"
+              find build -name "*.usym.*"
+              mv build/Android/symbols/build/ ./bak/
+              echo "Copied 'build/Android/symbols/build/' folder to './bak/' folder."
+              echo ""; echo "----- All '*.usym.*' files in 'bak' found: -----"
+              find bak -name "*.usym.*"; echo ""
+              echo ""; echo "----- All '*.usym.*' files in 'build' found: -----"
+              find build -name "*.usym.*"; echo ""
+            else
+              echo "No 'build/Android/symbols/build/' folder found - nothing to move to 'bak' folder. Just continue."
+            fi
+            #
             # Upload '.usym' files
-            USYM_FILE=$(find build -name "*.usym.*.*" | head -n 1)
+            USYM_FILE=$(find build -name "*.usym.*" | head -n 1)
             if [ -n "$USYM_FILE" ]; then
-              echo "All '*.usym.*.*' files found:"
-              find build -name "*.usym.*.*"
+              echo "All '*.usym.*' files found:"
+              find build -name "*.usym.*"
               echo ""; echo "----- Uploading '.usym' files to Sentry executed... -----"
               sentry-cli debug-files upload \
                 --org "$SENTRY_ORG" \
-                --project "$SENTRY_PROJECT"
+                --project "$SENTRY_PROJECT" \
                 --il2cpp-mapping \
                 build/Android/symbols/ \
                 ${{ inputs.sentry_debug == true && '--log-level debug' || '' }}
               echo "----- Uploading '.usym' files to Sentry completed -----"; echo ""
             else
-              echo "No '*.usym.*.*' found"
+              echo "No '*.usym.*' found"
+            fi
+            #
+            if [ -d "bak/" ]; then
+              mv ./bak/ build/Android/symbols/build/
+            else
+              echo "No 'bak/' folder found - nothing to move back to 'build' folder. Just continue."
             fi
           else
             echo "AAB file not found."
