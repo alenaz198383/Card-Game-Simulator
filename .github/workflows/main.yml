@@ -41,6 +41,10 @@ on:
           - apk
           - aab
         default: aab
+      sentry_debug:
+        description: 'Sentry CLI debug logging'
+        type: boolean
+        default: false
       run_buildWindows_job:
         description: 'Job: Windows Build'
         type: boolean
@@ -305,21 +309,78 @@ jobs:
           DIR="build/Android"
           SRC="${DIR}/Android.${{ matrix.exportMode }}.txt"
           DEST="${DIR}/${{ env.ANDROID_VERSION_CODE }}.${{ matrix.exportMode }}.txt"
-          touch "$SRC"
+          chmod +x .github/scripts/helpers.sh && source .github/scripts/helpers.sh
+          check_folder "./"
+          check_folder "build/"
+          check_folder "$DIR"
+          mkdir -p "$DIR"; echo "Created '$DIR' (if not exists)"
+          check_folder "$DIR"
           echo "asd" > "$SRC"
           echo "SRC: $SRC"
           echo "DEST: $DEST"
-          ls -alF "$DIR"
+          check_folder "$DIR"
           cp "$SRC" "$DEST"
-          ls -alF "$DIR"
+          check_folder "$DIR"
+          cat_file "$SRC"
+          cat_file "$DEST"
 
-      - name: Upload Build
+      - name: Upload Build as GitHub artifact
         uses: actions/upload-artifact@v7
         if: steps.buildStep.outcome != 'skipped'
         with:
           path: build/Android
           name: cgs-Android-${{ matrix.exportMode }}-${{ env.ANDROID_VERSION_CODE }}
           retention-days: 1
+
+      - name: Upload Build to R2
+        if: steps.buildStep.outcome != 'skipped'
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-east-1
+          R2_BUCKET: ${{ secrets.R2_BUCKET_NAME }}
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+        run: |
+          if [ -d "build/Android" ]; then
+            mkdir -p artifacts
+            arch_file_name="cgs-Android-${{ matrix.exportMode }}-${{ env.ANDROID_VERSION_CODE }}"
+            zip_file_name="$arch_file_name.zip"
+            zst_file_name="$arch_file_name.tar.zst"
+            #
+            echo ""; echo "----- Zipping started ... -----"
+            zip -r "artifacts/$zip_file_name" build/Android
+            echo "----- Zipping completed. -----"; echo ""
+            #
+            echo ""; echo "----- Uploading zip started ... -----"
+            aws s3 cp "artifacts/$zip_file_name" "s3://$R2_BUCKET/$zip_file_name" --endpoint-url $R2_ENDPOINT --quiet
+            echo "----- Uploading zip completed. -----"; echo ""
+            #
+            source .github/scripts/helpers.sh
+            check_folder ./
+            check_folder "build/Android/"
+            check_folder "artifacts/"
+            check_file   "artifacts/$zip_file_name"
+            #
+            echo ""; echo "----- ZSTing started ... -----"
+            zip -r "artifacts/$zst_file_name" build/Android
+            echo "----- ZSTing completed. -----"; echo ""
+            #
+            echo ""; echo "----- Uploading zst started ... -----"
+            aws s3 cp "artifacts/$zst_file_name" "s3://$R2_BUCKET/$zst_file_name" --endpoint-url $R2_ENDPOINT --quiet
+            echo "----- Uploading zst completed. -----"; echo ""
+            #
+            check_folder ./
+            check_folder "build/Android/"
+            check_folder "artifacts/"
+            check_file   "artifacts/$zst_file_name"
+          else
+            echo "'build/Android' folder not found, skipping '${{ matrix.exportMode }}' save."
+          fi
+
+      - name: 📈 Install sentry-cli
+        if: steps.buildStep.outcome == 'success' && matrix.exportMode == 'aab'
+        run: |
+          curl -sL https://sentry.io/get-cli/ | bash
 
       - name: 📈 Upload AAB to Sentry for Size Tracking
         continue-on-error: true
@@ -331,15 +392,10 @@ jobs:
         run: |
           AAB_FILE=$(find build -name "*.aab" | head -n 1)
           if [ -n "$AAB_FILE" ]; then
-            echo ""; echo "----- 'sentry-cli' installation executed... -----"
-            curl -sL https://sentry.io/get-cli/ | bash
-            echo "----- 'sentry-cli' installation completed -----"; echo ""
-            echo ""; echo "----- 'sentry-cli --help' -----"
-            sentry-cli --help
-            echo "----- End of 'sentry-cli --help' -----"; echo ""
-            echo ""; echo "----- 'sentry-cli build upload --help' -----"
-            sentry-cli build upload --help
-            echo "----- End of 'sentry-cli build upload --help' -----"; echo ""
+            #echo ""; echo "----- 'sentry-cli' installation executed... -----"
+            #curl -sL https://sentry.io/get-cli/ | bash
+            #echo "----- 'sentry-cli' installation completed -----"; echo ""
+            #
             echo "All '*.aab' files found:"
             find build -name "*.aab"
             echo "Using: $AAB_FILE"
@@ -349,9 +405,26 @@ jobs:
               --project "$SENTRY_PROJECT" \
               --build-configuration Release \
               --head-sha "${{ github.sha }}" \
-              --force-git-metadata
+              --head-repo-name "gal20040/2048" \
+              --vcs-provider github \
+              --force-git-metadata \
+              ${{ inputs.sentry_debug == true && '--log-level debug' || '' }}
             echo "----- Uploading AAB to Sentry completed -----"; echo ""
-            #
+          else
+            echo "AAB file not found."
+            exit 1
+          fi
+
+      - name: 📈 Upload '*mapping*.txt' to Sentry
+        continue-on-error: true
+        if: steps.buildStep.outcome == 'success' && matrix.exportMode == 'aab'
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+        run: |
+          AAB_FILE=$(find build -name "*.aab" | head -n 1)
+          if [ -n "$AAB_FILE" ]; then
             # Upload ProGuard mapping if it exists
             MAPPING_FILE=$(find build -name "*mapping*.txt" | head -n 1)
             if [ -n "$MAPPING_FILE" ]; then
@@ -361,12 +434,27 @@ jobs:
               echo ""; echo "----- Uploading mapping to Sentry executed... -----"
               find build -name "*mapping*.txt" | xargs sentry-cli upload-proguard \
                 --org "$SENTRY_ORG" \
-                --project "$SENTRY_PROJECT"
+                --project "$SENTRY_PROJECT" \
+                ${{ inputs.sentry_debug == true && '--log-level debug' || '' }}
               echo "----- Uploading mapping to Sentry completed -----"; echo ""
             else
               echo "No '*mapping*.txt' found (minification may be disabled)"
             fi
-            #
+          else
+            echo "AAB file not found."
+            exit 1
+          fi
+
+      - name: 📈 Upload '*.usym.*.*' to Sentry
+        continue-on-error: true
+        if: steps.buildStep.outcome == 'success' && matrix.exportMode == 'aab'
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+        run: |
+          AAB_FILE=$(find build -name "*.aab" | head -n 1)
+          if [ -n "$AAB_FILE" ]; then
             # Upload '.usym' files
             USYM_FILE=$(find build -name "*.usym.*.*" | head -n 1)
             if [ -n "$USYM_FILE" ]; then
@@ -377,7 +465,8 @@ jobs:
                 --org "$SENTRY_ORG" \
                 --project "$SENTRY_PROJECT"
                 --il2cpp-mapping \
-                build/Android/symbols/
+                build/Android/symbols/ \
+                ${{ inputs.sentry_debug == true && '--log-level debug' || '' }}
               echo "----- Uploading '.usym' files to Sentry completed -----"; echo ""
             else
               echo "No '*.usym.*.*' found"
