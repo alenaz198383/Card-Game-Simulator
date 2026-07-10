@@ -12,7 +12,7 @@ env:
   DOTNET_NOLOGO: true
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-  UNITY_VERSION: 6000.3.15f1
+  UNITY_VERSION: 6000.3.19f1
 on:
   release:
     types:
@@ -296,33 +296,13 @@ jobs:
           df -h
           free -h || true
 
-      - name: Rename Android build artifact (${{ matrix.exportMode }})
-        continue-on-error: true
-        if: steps.buildStep.outcome == 'success'
-        run: |
-          DIR="build/Android"
-          SRC="${DIR}/Android.${{ matrix.exportMode }}"
-          DEST="${DIR}/${{ env.ANDROID_VERSION_CODE }}.${{ matrix.exportMode }}"
-          chmod +x .github/scripts/helpers.sh && source .github/scripts/helpers.sh
-          check_folder "./"
-          check_folder "build/"
-          check_folder "$DIR"
-          mkdir -p "$DIR"; echo "Created '$DIR' (if not exists)"
-          check_folder "$DIR"
-          echo "SRC: $SRC"
-          echo "DEST: $DEST"
-          mv "$SRC" "$DEST"
-          check_folder "$DIR"
-          check_file "$SRC"
-          check_file "$DEST"
-
-      - name: Upload Build as GitHub artifact
-        uses: actions/upload-artifact@v7
-        if: steps.buildStep.outcome != 'skipped'
-        with:
-          path: build/Android
-          name: cgs-Android-${{ matrix.exportMode }}-${{ env.ANDROID_VERSION_CODE }}
-          retention-days: 1
+      #- name: Upload Build as GitHub artifact
+      #  uses: actions/upload-artifact@v7
+      #  if: steps.buildStep.outcome != 'skipped'
+      #  with:
+      #    path: build/Android
+      #    name: cgs-Android-${{ matrix.exportMode }}-${{ env.ANDROID_VERSION_CODE }}
+      #    retention-days: 1
 
       - name: Upload Build to R2
         if: steps.buildStep.outcome != 'skipped'
@@ -338,6 +318,32 @@ jobs:
             zst_file_name="cgs-Android-${{ matrix.exportMode }}-${{ env.ANDROID_VERSION_CODE }}.tar.zst"
             tar -I 'zstd -9' -cf "artifacts/$zst_file_name" build/Android
             aws s3 cp "artifacts/$zst_file_name" "s3://$R2_BUCKET/$zst_file_name" --endpoint-url $R2_ENDPOINT --quiet
+            #
+            DIR="artifacts/build/Android"
+            SRC="${DIR}/Android.${{ matrix.exportMode }}"
+            DEST="${DIR}/${{ env.ANDROID_VERSION_CODE }}.${{ matrix.exportMode }}"
+            echo "SRC: $SRC"
+            echo "DEST: $DEST"
+            #
+            chmod +x .github/scripts/helpers.sh && source .github/scripts/helpers.sh
+            check_folder "./"
+            check_folder "artifacts/"
+            check_folder "artifacts/build/"
+            check_folder "$DIR"
+            check_folder "build/"
+            check_folder "build/Android/"
+            #
+            cp "build/" "artifacts/"
+            check_folder "artifacts/"
+            check_folder "artifacts/build/"
+            check_folder "$DIR"
+            check_file "$SRC"
+            check_file "$DEST"
+            #
+            mv "$SRC" "$DEST"
+            check_folder "$DIR"
+            check_file "$SRC"
+            check_file "$DEST"
           else
             echo "'build/Android' folder not found, skipping '${{ matrix.exportMode }}' save."
           fi
@@ -451,26 +457,6 @@ jobs:
             exit 1
           fi
 
-      - name: 📈 Find symbols files
-        continue-on-error: true
-        if: always() && steps.buildStep.outcome == 'success' && matrix.exportMode == 'aab'
-        env:
-          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
-          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
-          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
-        run: |
-          AAB_FILE=$(find build -name "*.aab" | head -n 1)
-          if [ -n "$AAB_FILE" ]; then
-            #
-            echo ""; echo "---- All 'libil2cpp.so' files found: -----"
-            find . -name "libil2cpp.so" 2>/dev/null | xargs ls -lh 2>/dev/null | sort -k5 -rh; echo ""
-            echo ""; echo "---- All '*symbol*' files found: -----"
-            find . -name "*symbol*" -o -name "*sym*" | grep -v usym; echo ""
-          else
-            echo "AAB file not found."
-            exit 1
-          fi
-
       - name: Post android build info
         if: always()
         run: |
@@ -478,8 +464,8 @@ jobs:
           echo "- Project Version (buildVersion): \`${{ steps.buildStep.outputs.buildVersion }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- Android Version Code: \`${{ steps.buildStep.outputs.androidVersionCode }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- Build Step Exit Code: \`${{ steps.buildStep.outputs.engineExitCode }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- Build Step outcome: ${{ steps.buildStep.outcome }}" >> $GITHUB_STEP_SUMMARY
-          echo "- Build Step conclusion: ${{ steps.buildStep.conclusion }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Build Step outcome: \`${{ steps.buildStep.outcome }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Build Step conclusion: \`${{ steps.buildStep.conclusion }}\`" >> $GITHUB_STEP_SUMMARY
 
       #- name: Save Library cache to R2
       #  id: save_library_cache
