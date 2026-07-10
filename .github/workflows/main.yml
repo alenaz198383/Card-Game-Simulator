@@ -12,7 +12,6 @@ env:
   DOTNET_NOLOGO: true
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-  UNITY_VERSION: 6000.3.19f1
 on:
   release:
     types:
@@ -328,8 +327,6 @@ jobs:
             chmod +x .github/scripts/helpers.sh && source .github/scripts/helpers.sh
             check_folder "./"
             check_folder "artifacts/"
-            check_folder "artifacts/build/"
-            check_folder "$DIR"
             check_folder "build/"
             check_folder "build/Android/"
             #
