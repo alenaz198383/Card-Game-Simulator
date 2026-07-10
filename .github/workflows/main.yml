@@ -202,8 +202,32 @@ jobs:
           if [ -n "$CUSTOM_VER" ]; then
             echo "Using custom build version from input: $CUSTOM_VER"
             BUILD_VERSION="$CUSTOM_VER"
-            #echo "Using custom android version code from input: $CUSTOM_CODE"
-            #ANDROID_CODE="$CUSTOM_CODE"
+            #
+            # 2. Валидация формата X.Y.Z (три числа через точку)
+            # Регулярка проверяет: начало строки, число, точка, число, точка, число, конец строки
+            if ! [[ "$BUILD_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              echo "Error: Invalid version format '$BUILD_VERSION'. Expected format is X.Y.Z (e.g., 1.2.3)" >&2
+              exit 1
+            fi
+            #
+            # 3. Парсим X, Y, Z
+            # Используем IFS (Internal Field Separator) для разбиения строки по точке
+            IFS='.' read -r X Y Z <<< "$BUILD_VERSION"
+            #
+            # На всякий случай проверяем, что переменные не пустые (защита от странных багов)
+            if [ -z "$X" ] || [ -z "$Y" ] || [ -z "$Z" ]; then
+              echo "Error: Failed to parse version components from '$BUILD_VERSION'" >&2
+              echo "major: $X"
+              echo "minor: $Y"
+              echo "patch: $Z"
+              exit 1
+            fi
+            #
+            # 4. Вычисляем ANDROID_VERSION_CODE
+            ANDROID_CODE=$((X * 1000000 + Y * 1000 + Z))
+            #
+            echo "Parsed components: X=$X, Y=$Y, Z=$Z"
+            echo "Calculated ANDROID_VERSION_CODE: $ANDROID_CODE"
           else
             # Если инпут пустой, читаем из файла
             if [ ! -f "ProjectSettings/buildVersion.txt" ]; then
@@ -371,7 +395,7 @@ jobs:
             check_folder "build/"
             check_folder "build/Android/"
             #
-            cp "build/" "artifacts/"
+            cp -r "build/" "artifacts/"
             check_folder "artifacts/"
             check_folder "artifacts/build/"
             check_folder "$DIR"
