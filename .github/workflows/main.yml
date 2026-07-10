@@ -219,11 +219,6 @@ jobs:
           echo "VERSION=$buildVersion" >> $GITHUB_ENV
           echo "Detected version: $buildVersion, code: $androidVersionCode"
 
-      - name: Versions
-        run: |
-          echo "Detected version: $VERSION, code: $ANDROID_VERSION_CODE"
-          echo "Detected version: ${{ env.VERSION }}, code: ${{ env.ANDROID_VERSION_CODE }}"
-
       #- name: Restore Library cache from R2
       #  id: restore_library_cache
       #  env:
@@ -254,6 +249,11 @@ jobs:
           key: Library-Android-${{ hashFiles('Packages/manifest.json', 'Packages/packages-lock.json', 'ProjectSettings/ProjectSettings.asset', 'ProjectSettings/ProjectVersion.txt', 'Assets/Settings/Build Profiles/Android_Release_APK.asset', 'Assets/Settings/Build Profiles/Android_Release_AAB.asset') }}-${{ matrix.exportMode == 'apk' && 'apk' || 'aab' }}
           restore-keys: |
             Library-Android-${{ hashFiles('Packages/manifest.json', 'Packages/packages-lock.json', 'ProjectSettings/ProjectSettings.asset', 'ProjectSettings/ProjectVersion.txt', 'Assets/Settings/Build Profiles/Android_Release_APK.asset', 'Assets/Settings/Build Profiles/Android_Release_AAB.asset') }}-
+
+      - name: 📈 Install sentry-cli
+        if: matrix.exportMode == 'aab'
+        run: |
+          curl -sL https://sentry.io/get-cli/ | bash
 
       - name: Before build timestamp
         if: ${{ always() }}
@@ -296,33 +296,25 @@ jobs:
           df -h
           free -h || true
 
-      - name: Print build outcome
-        if: ${{ always() }}
-        run: |
-          echo "build outcome: ${{ steps.build.outcome }}"
-          echo "build conclusion: ${{ steps.build.conclusion }}"
-
       - name: Rename Android build artifact (${{ matrix.exportMode }})
         continue-on-error: true
         if: steps.buildStep.outcome == 'success'
         run: |
           DIR="build/Android"
-          SRC="${DIR}/Android.${{ matrix.exportMode }}.txt"
-          DEST="${DIR}/${{ env.ANDROID_VERSION_CODE }}.${{ matrix.exportMode }}.txt"
+          SRC="${DIR}/Android.${{ matrix.exportMode }}"
+          DEST="${DIR}/${{ env.ANDROID_VERSION_CODE }}.${{ matrix.exportMode }}"
           chmod +x .github/scripts/helpers.sh && source .github/scripts/helpers.sh
           check_folder "./"
           check_folder "build/"
           check_folder "$DIR"
           mkdir -p "$DIR"; echo "Created '$DIR' (if not exists)"
           check_folder "$DIR"
-          echo "asd" > "$SRC"
           echo "SRC: $SRC"
           echo "DEST: $DEST"
+          mv "$SRC" "$DEST"
           check_folder "$DIR"
-          cp "$SRC" "$DEST"
-          check_folder "$DIR"
-          cat_file "$SRC"
-          cat_file "$DEST"
+          check_file "$SRC"
+          check_file "$DEST"
 
       - name: Upload Build as GitHub artifact
         uses: actions/upload-artifact@v7
@@ -349,11 +341,6 @@ jobs:
           else
             echo "'build/Android' folder not found, skipping '${{ matrix.exportMode }}' save."
           fi
-
-      - name: 📈 Install sentry-cli
-        if: steps.buildStep.outcome == 'success' && matrix.exportMode == 'aab'
-        run: |
-          curl -sL https://sentry.io/get-cli/ | bash
 
       - name: 📈 Upload AAB to Sentry for Size Tracking
         continue-on-error: true
@@ -418,7 +405,7 @@ jobs:
             exit 1
           fi
 
-      - name: 📈 Upload '*.usym.*' to Sentry
+      - name: 📈 Upload symbol's files to Sentry
         continue-on-error: true
         if: steps.buildStep.outcome == 'success' && matrix.exportMode == 'aab'
         env:
@@ -428,28 +415,43 @@ jobs:
         run: |
           AAB_FILE=$(find build -name "*.aab" | head -n 1)
           if [ -n "$AAB_FILE" ]; then
-            # Upload '.usym' files
-            USYM_FILE=$(find build -name "*.usym.*" | head -n 1)
-            if [ -n "$USYM_FILE" ]; then
-              echo "All '*.usym.*' files found:"
-              find build -name "*.usym.*"
-              echo ""; echo "----- Uploading '.usym' files to Sentry executed... -----"
-              sentry-cli debug-files upload \
-                --org "$SENTRY_ORG" \
-                --project "$SENTRY_PROJECT" \
-                --il2cpp-mapping \
-                build/Android/symbols/src/ \
-                ${{ inputs.sentry_debug == true && '--log-level debug' || '' }}
-              echo "----- Uploading '.usym' files to Sentry completed -----"; echo ""
-            else
-              echo "No '*.usym.*' found"
-            fi
+            echo ""; echo "----- Uploading symbol's files to Sentry executed... -----"
+            sentry-cli debug-files upload \
+              --org "$SENTRY_ORG" \
+              --project "$SENTRY_PROJECT" \
+              --il2cpp-mapping \
+              build/ \
+              ${{ inputs.sentry_debug == true && '--log-level debug' || '' }}
+            echo "----- Uploading symbol's files to Sentry completed -----"; echo ""
           else
             echo "AAB file not found."
             exit 1
           fi
 
-      - name: 📈 Check '*.usym.*'
+      - name: 📈 Upload symbol's files to Sentry
+        continue-on-error: true
+        if: steps.buildStep.outcome == 'success' && matrix.exportMode == 'aab'
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+        run: |
+          AAB_FILE=$(find build -name "*.aab" | head -n 1)
+          if [ -n "$AAB_FILE" ]; then
+            echo ""; echo "----- Uploading symbol's files to Sentry executed... -----"
+            sentry-cli debug-files upload \
+              --org "$SENTRY_ORG" \
+              --project "$SENTRY_PROJECT" \
+              --il2cpp-mapping \
+              ./ \
+              ${{ inputs.sentry_debug == true && '--log-level debug' || '' }}
+            echo "----- Uploading symbol's files to Sentry completed -----"; echo ""
+          else
+            echo "AAB file not found."
+            exit 1
+          fi
+
+      - name: 📈 Find symbols files
         continue-on-error: true
         if: always() && steps.buildStep.outcome == 'success' && matrix.exportMode == 'aab'
         env:
@@ -460,19 +462,10 @@ jobs:
           AAB_FILE=$(find build -name "*.aab" | head -n 1)
           if [ -n "$AAB_FILE" ]; then
             #
-            if [ -d "build/Android/symbols/build/" ]; then
-              ls -alF "build/Android/symbols/"
-              ls -alF "build/Android/symbols/build/"
-              echo "All '*.usym.*' files in 'build' found:"
-              find build -name "*.usym.*"
-              rm -rf build/Android/symbols/build/
-              echo ""; echo "Removed 'build/Android/symbols/build/' folder."; echo ""
-              ls -alF "build/Android/symbols/"
-              echo ""; echo "----- All '*.usym.*' files in 'build' found: -----"
-              find build -name "*.usym.*"
-            else
-              echo "No 'build/Android/symbols/build/' folder found - nothing to remove. Just continue."
-            fi
+            echo ""; echo "---- All 'libil2cpp.so' files found: -----"
+            find . -name "libil2cpp.so" 2>/dev/null | xargs ls -lh 2>/dev/null | sort -k5 -rh; echo ""
+            echo ""; echo "---- All '*symbol*' files found: -----"
+            find . -name "*symbol*" -o -name "*sym*" | grep -v usym; echo ""
           else
             echo "AAB file not found."
             exit 1
@@ -481,10 +474,12 @@ jobs:
       - name: Post android build info
         if: always()
         run: |
-          echo "##### Android Build Info" >> $GITHUB_STEP_SUMMARY
+          echo "##### Build Step Info" >> $GITHUB_STEP_SUMMARY
           echo "- Project Version (buildVersion): \`${{ steps.buildStep.outputs.buildVersion }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- Android Version Code: \`${{ steps.buildStep.outputs.androidVersionCode }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- Build Step Exit Code: \`${{ steps.buildStep.outputs.engineExitCode }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Build Step outcome: ${{ steps.buildStep.outcome }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Build Step conclusion: ${{ steps.buildStep.conclusion }}" >> $GITHUB_STEP_SUMMARY
 
       #- name: Save Library cache to R2
       #  id: save_library_cache
