@@ -329,20 +329,20 @@ jobs:
           SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
           SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
         run: |
-          echo ""; echo "----- 'sentry-cli --help' -----"
-          sentry-cli --help
-          echo "----- End of 'sentry-cli --help' -----"; echo ""
-          echo ""; echo "----- 'sentry-cli build upload --help' -----"
-          sentry-cli build upload --help
-          echo "----- End of 'sentry-cli build upload --help' -----"; echo ""
           AAB_FILE=$(find build -name "*.aab" | head -n 1)
           if [ -n "$AAB_FILE" ]; then
-            echo "All '*.aab' files found:"
-            find build -name "*.aab"
-            echo "Using: $AAB_FILE"
             echo ""; echo "----- 'sentry-cli' installation executed... -----"
             curl -sL https://sentry.io/get-cli/ | bash
             echo "----- 'sentry-cli' installation completed -----"; echo ""
+            echo ""; echo "----- 'sentry-cli --help' -----"
+            sentry-cli --help
+            echo "----- End of 'sentry-cli --help' -----"; echo ""
+            echo ""; echo "----- 'sentry-cli build upload --help' -----"
+            sentry-cli build upload --help
+            echo "----- End of 'sentry-cli build upload --help' -----"; echo ""
+            echo "All '*.aab' files found:"
+            find build -name "*.aab"
+            echo "Using: $AAB_FILE"
             echo ""; echo "----- Uploading AAB to Sentry executed... -----"
             sentry-cli build upload "$AAB_FILE" \
               --org "$SENTRY_ORG" \
