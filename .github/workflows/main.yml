@@ -298,6 +298,21 @@ jobs:
           echo "build outcome: ${{ steps.build.outcome }}"
           echo "build conclusion: ${{ steps.build.conclusion }}"
 
+      - name: Rename Android build artifact (${{ matrix.exportMode }})
+        continue-on-error: true
+        if: steps.buildStep.outcome == 'success'
+        run: |
+          DIR="build/Android"
+          SRC="${DIR}/Android.${{ matrix.exportMode }}.txt"
+          DEST="${DIR}/${{ env.ANDROID_VERSION_CODE }}.${{ matrix.exportMode }}.txt"
+          touch "$SRC"
+          echo "asd" > "$SRC"
+          echo "SRC: $SRC"
+          echo "DEST: $DEST"
+          ls -alF "$DIR"
+          cp "$SRC" "$DEST"
+          ls -alF "$DIR"
+
       - name: Upload Build
         uses: actions/upload-artifact@v7
         if: steps.buildStep.outcome != 'skipped'
