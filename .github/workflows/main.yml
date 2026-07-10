@@ -334,13 +334,13 @@ jobs:
               --build-configuration Release
             echo "----- Uploading AAB to Sentry completed -----"; echo ""
             # Upload ProGuard mapping if it exists
-            MAPPING_FILE=$(find build -name "mapping.txt" | head -n 1)
+            MAPPING_FILE=$(find build -name "*mapping*.txt" | head -n 1)
             if [ -n "$MAPPING_FILE" ]; then
               echo "All 'mapping.txt' files found:"
-              find build -name "mapping.txt"
+              find build -name "*mapping*.txt"
               echo "Using: $MAPPING_FILE"
               echo ""; echo "----- Uploading mapping to Sentry executed... -----"
-              find build -name "mapping.txt" | xargs sentry-cli upload-proguard \
+              find build -name "*mapping*.txt" | xargs sentry-cli upload-proguard \
                 --org "$SENTRY_ORG" \
                 --project "$SENTRY_PROJECT"
               echo "----- Uploading mapping to Sentry completed -----"; echo ""
