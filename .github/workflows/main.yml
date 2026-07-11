@@ -217,11 +217,6 @@ jobs:
           cd ./Card-Game-Simulator/
           mkdir -p Assets/Plugins/Sentry/
           echo "$SENTRY_CLI_OPTIONS" > Assets/Plugins/Sentry/SentryCliOptions.asset
-          androidVersionCode=$(cat ProjectSettings/androidVersionCode.txt | tr -d '[:space:]')
-          buildVersion=$(cat ProjectSettings/buildVersion.txt | tr -d '[:space:]')
-          echo "ANDROID_VERSION_CODE=$androidVersionCode" >> $GITHUB_ENV
-          echo "VERSION=$buildVersion" >> $GITHUB_ENV
-          echo "Detected version: $buildVersion, code: $androidVersionCode"
 
       - name: Extract Build Versions (File or Input)
         run: |
@@ -259,28 +254,25 @@ jobs:
             echo "Calculated ANDROID_VERSION_CODE: $ANDROID_CODE"
           else
             # Если инпут пустой, читаем из файла
-            if [ ! -f "ProjectSettings/buildVersion.txt" ]; then
-              echo "Error: ProjectSettings/buildVersion.txt not found and no custom version provided." >&2
-              exit 1
-            fi
-            if [ ! -f "ProjectSettings/androidVersionCode.txt" ]; then
-              echo "Error: ProjectSettings/androidVersionCode.txt not found and no custom code provided." >&2
-              exit 1
-            fi
-            ANDROID_CODE=$(cat ProjectSettings/androidVersionCode.txt | tr -d '[:space:]')
+            #
+            # 1. Находим строку bundleVersion и берем версию (например, 1.50.30)
+            BUILD_VERSION=$(grep -oP 'bundleVersion:\s*\K[\d.]+' ProjectSettings/ProjectSettings.asset)
+            #
+            # 2. Находим строку AndroidBundleVersionCode и берем число
+            ANDROID_CODE=$(grep -oP 'AndroidBundleVersionCode:\s*\K\d+' ProjectSettings/ProjectSettings.asset)
+            #
             echo "Using android version code from file: $ANDROID_CODE"
-            BUILD_VERSION=$(cat ProjectSettings/buildVersion.txt | tr -d '[:space:]')
             echo "Using build version from file: $BUILD_VERSION"
           fi
           #
           # Экспортируем переменные в окружение для следующих шагов
-          echo "CUSTOM_VERSION=$BUILD_VERSION" >> "$GITHUB_ENV"
-          echo "CUSTOM_ANDROID_VERSION_CODE=$ANDROID_CODE" >> "$GITHUB_ENV"
+          echo "VERSION=$BUILD_VERSION" >> "$GITHUB_ENV"
+          echo "ANDROID_VERSION_CODE=$ANDROID_CODE" >> "$GITHUB_ENV"
 
       - name: Show Detected Versions
         run: |
-          echo "Final VERSION: ${{ env.CUSTOM_VERSION }}"
-          echo "Final ANDROID_VERSION_CODE: ${{ env.CUSTOM_ANDROID_VERSION_CODE }}"
+          echo "Using VERSION: ${{ env.VERSION }}"
+          echo "Using ANDROID_VERSION_CODE: ${{ env.ANDROID_VERSION_CODE }}"
 
       #- name: Restore Library cache from R2
       #  id: restore_library_cache
