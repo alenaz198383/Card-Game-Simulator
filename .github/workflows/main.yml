@@ -378,34 +378,22 @@ jobs:
           R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
         run: |
           if [ -d "build/Android" ]; then
-            mkdir -p artifacts
-            zst_file_name="cgs-Android-${{ matrix.exportMode }}-${{ env.ANDROID_VERSION_CODE }}.tar.zst"
-            tar -I 'zstd -9' -cf "artifacts/$zst_file_name" build/Android
-            aws s3 cp "artifacts/$zst_file_name" "s3://$R2_BUCKET/$zst_file_name" --endpoint-url $R2_ENDPOINT --quiet
-            #
             DIR="artifacts/build/Android"
             SRC="${DIR}/Android.${{ matrix.exportMode }}"
             DEST="${DIR}/${{ env.ANDROID_VERSION_CODE }}.${{ matrix.exportMode }}"
-            echo "SRC: $SRC"
-            echo "DEST: $DEST"
+            mkdir -p artifacts
             #
             chmod +x .github/scripts/helpers.sh && source .github/scripts/helpers.sh
-            check_folder "./"
-            check_folder "artifacts/"
-            check_folder "build/"
-            check_folder "build/Android/"
-            #
             cp -r "build/" "artifacts/"
-            check_folder "artifacts/"
-            check_folder "artifacts/build/"
             check_folder "$DIR"
-            check_file "$SRC"
-            check_file "$DEST"
             #
             mv "$SRC" "$DEST"
-            check_folder "$DIR"
-            check_file "$SRC"
             check_file "$DEST"
+            #
+            zst_file_name="${{ env.ANDROID_VERSION_CODE }}.${{ matrix.exportMode }}.tar.zst"
+            tar -I 'zstd -9' -cf "artifacts/$zst_file_name" "$DIR/"
+            aws s3 cp "artifacts/$zst_file_name" "s3://$R2_BUCKET/$zst_file_name" --endpoint-url $R2_ENDPOINT --quiet
+            rm -rf artifacts/
           else
             echo "'build/Android' folder not found, skipping '${{ matrix.exportMode }}' save."
           fi
