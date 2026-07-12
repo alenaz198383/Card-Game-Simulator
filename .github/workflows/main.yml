@@ -19,7 +19,7 @@ on:
   workflow_dispatch:
     inputs:
       custom_build_version:
-        description: 'Версия сборки (формат 1.2.3). Оставьте пустым, чтобы взять из ProjectSettings/ProjectSettings.asset'
+        description: 'Версия сборки (формат 1.2.3). Оставьте пустым, чтобы взять из buildVersion.txt'
         required: false
         type: string
         default: ''
@@ -217,62 +217,75 @@ jobs:
           cd ./Card-Game-Simulator/
           mkdir -p Assets/Plugins/Sentry/
           echo "$SENTRY_CLI_OPTIONS" > Assets/Plugins/Sentry/SentryCliOptions.asset
+          androidVersionCode=$(cat ProjectSettings/androidVersionCode.txt | tr -d '[:space:]')
+          buildVersion=$(cat ProjectSettings/buildVersion.txt | tr -d '[:space:]')
+          echo "ANDROID_VERSION_CODE=$androidVersionCode" >> $GITHUB_ENV
+          echo "VERSION=$buildVersion" >> $GITHUB_ENV
+          echo "Detected version: $buildVersion, code: $androidVersionCode"
 
-      - name: Extract Build Versions (File or Input)
-        run: |
-          CUSTOM_VER="${{ inputs.custom_build_version }}"
-          #
-          # --- Логика для VERSION (buildVersion.txt) ---
-          if [ -n "$CUSTOM_VER" ]; then
-            echo "Using custom build version from input: $CUSTOM_VER"
-            BUILD_VERSION="$CUSTOM_VER"
-            #
-            # 2. Валидация формата X.Y.Z (три числа через точку)
-            # Регулярка проверяет: начало строки, число, точка, число, точка, число, конец строки
-            if ! [[ "$BUILD_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-              echo "Error: Invalid version format '$BUILD_VERSION'. Expected format is X.Y.Z (e.g., 1.2.3)" >&2
-              exit 1
-            fi
-            #
-            # 3. Парсим X, Y, Z
-            # Используем IFS (Internal Field Separator) для разбиения строки по точке
-            IFS='.' read -r X Y Z <<< "$BUILD_VERSION"
-            #
-            # На всякий случай проверяем, что переменные не пустые (защита от странных багов)
-            if [ -z "$X" ] || [ -z "$Y" ] || [ -z "$Z" ]; then
-              echo "Error: Failed to parse version components from '$BUILD_VERSION'" >&2
-              echo "major: $X"
-              echo "minor: $Y"
-              echo "patch: $Z"
-              exit 1
-            fi
-            #
-            # 4. Вычисляем ANDROID_VERSION_CODE
-            ANDROID_CODE=$((X * 1000000 + Y * 1000 + Z))
-            #
-            echo "Parsed components: X=$X, Y=$Y, Z=$Z"
-            echo "Calculated ANDROID_VERSION_CODE: $ANDROID_CODE"
-          else
-            # Если инпут пустой, читаем из файла
-            #
-            # 1. Находим строку bundleVersion и берем версию (например, 1.50.30)
-            BUILD_VERSION=$(grep -oP 'bundleVersion:\s*\K[\d.]+' ProjectSettings/ProjectSettings.asset)
-            #
-            # 2. Находим строку AndroidBundleVersionCode и берем число
-            ANDROID_CODE=$(grep -oP 'AndroidBundleVersionCode:\s*\K\d+' ProjectSettings/ProjectSettings.asset)
-            #
-            echo "Using android version code from file: $ANDROID_CODE"
-            echo "Using build version from file: $BUILD_VERSION"
-          fi
-          #
-          # Экспортируем переменные в окружение для следующих шагов
-          echo "VERSION=$BUILD_VERSION" >> "$GITHUB_ENV"
-          echo "ANDROID_VERSION_CODE=$ANDROID_CODE" >> "$GITHUB_ENV"
+      #- name: Extract Build Versions (File or Input)
+      #  run: |
+      #    CUSTOM_VER="${{ inputs.custom_build_version }}"
+      #    #
+      #    # --- Логика для VERSION (buildVersion.txt) ---
+      #    if [ -n "$CUSTOM_VER" ]; then
+      #      echo "Using custom build version from input: $CUSTOM_VER"
+      #      BUILD_VERSION="$CUSTOM_VER"
+      #      #
+      #      # 2. Валидация формата X.Y.Z (три числа через точку)
+      #      # Регулярка проверяет: начало строки, число, точка, число, точка, число, конец строки
+      #      if ! [[ "$BUILD_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+      #        echo "Error: Invalid version format '$BUILD_VERSION'. Expected format is X.Y.Z (e.g., 1.2.3)" >&2
+      #        exit 1
+      #      fi
+      #      #
+      #      # 3. Парсим X, Y, Z
+      #      # Используем IFS (Internal Field Separator) для разбиения строки по точке
+      #      IFS='.' read -r X Y Z <<< "$BUILD_VERSION"
+      #      #
+      #      # На всякий случай проверяем, что переменные не пустые (защита от странных багов)
+      #      if [ -z "$X" ] || [ -z "$Y" ] || [ -z "$Z" ]; then
+      #        echo "Error: Failed to parse version components from '$BUILD_VERSION'" >&2
+      #        echo "major: $X"
+      #        echo "minor: $Y"
+      #        echo "patch: $Z"
+      #        exit 1
+      #      fi
+      #      #
+      #      # 4. Вычисляем ANDROID_VERSION_CODE
+      #      ANDROID_CODE=$((X * 1000000 + Y * 1000 + Z))
+      #      #
+      #      echo "Parsed components: X=$X, Y=$Y, Z=$Z"
+      #      echo "Calculated ANDROID_VERSION_CODE: $ANDROID_CODE"
+      #    else
+      #      # Если инпут пустой, читаем из файла
+      #      if [ ! -f "ProjectSettings/buildVersion.txt" ]; then
+      #        echo "Error: ProjectSettings/buildVersion.txt not found and no custom version provided." >&2
+      #        exit 1
+      #      fi
+      #      if [ ! -f "ProjectSettings/androidVersionCode.txt" ]; then
+      #        echo "Error: ProjectSettings/androidVersionCode.txt not found and no custom code provided." >&2
+      #        exit 1
+      #      fi
+      #      ANDROID_CODE=$(cat ProjectSettings/androidVersionCode.txt | tr -d '[:space:]')
+      #      BUILD_VERSION=$(cat ProjectSettings/buildVersion.txt | tr -d '[:space:]')
+      #      echo "Using android version code from file: $ANDROID_CODE"
+      #      echo "Using build version from file: $BUILD_VERSION"
+      #    fi
+      #    #
+      #    # Экспортируем переменные в окружение для следующих шагов
+      #    echo "CUSTOM_VERSION=$BUILD_VERSION" >> "$GITHUB_ENV"
+      #    echo "CUSTOM_ANDROID_VERSION_CODE=$ANDROID_CODE" >> "$GITHUB_ENV"
+      #
+      #- name: Show Versions (тестируем)
+      #  run: |
+      #    echo "Test CUSTOM_VERSION: ${{ env.CUSTOM_VERSION }}"
+      #    echo "Test CUSTOM_ANDROID_VERSION_CODE: ${{ env.CUSTOM_ANDROID_VERSION_CODE }}"
 
-      - name: Show Detected Versions
+      - name: Show Final Using Versions
         run: |
-          echo "Using VERSION: ${{ env.VERSION }}"
-          echo "Using ANDROID_VERSION_CODE: ${{ env.ANDROID_VERSION_CODE }}"
+          echo "Final using VERSION: ${{ env.VERSION }}"
+          echo "Final using ANDROID_VERSION_CODE: ${{ env.ANDROID_VERSION_CODE }}"
 
       #- name: Restore Library cache from R2
       #  id: restore_library_cache
@@ -374,14 +387,8 @@ jobs:
             SRC="${DIR}/Android.${{ matrix.exportMode }}"
             DEST="${DIR}/${{ env.ANDROID_VERSION_CODE }}.${{ matrix.exportMode }}"
             mkdir -p artifacts
-            #
-            chmod +x .github/scripts/helpers.sh && source .github/scripts/helpers.sh
             cp -r "build/" "artifacts/"
-            check_folder "$DIR"
-            #
             mv "$SRC" "$DEST"
-            check_file "$DEST"
-            #
             zst_file_name="${{ env.ANDROID_VERSION_CODE }}.${{ matrix.exportMode }}.tar.zst"
             tar -I 'zstd -9' -cf "artifacts/$zst_file_name" "$DIR/"
             aws s3 cp "artifacts/$zst_file_name" "s3://$R2_BUCKET/$zst_file_name" --endpoint-url $R2_ENDPOINT --quiet
@@ -400,16 +407,21 @@ jobs:
         run: |
           AAB_FILE=$(find build -name "*.aab" | head -n 1)
           if [ -n "$AAB_FILE" ]; then
-            #echo ""; echo "----- 'sentry-cli' installation executed... -----"
-            #curl -sL https://sentry.io/get-cli/ | bash
-            #echo "----- 'sentry-cli' installation completed -----"; echo ""
-            #
             echo "All '*.aab' files found:"
             find build -name "*.aab"
             echo "Using: $AAB_FILE"
+            RELEASE_NAME="game2048@${{ env.VERSION }}"
+            #
+            echo ""; echo "----- Creating Sentry release ($RELEASE_NAME) executed... -----"
+            sentry-cli releases new "$RELEASE_NAME" \
+              --org "$SENTRY_ORG" \
+              --project "$SENTRY_PROJECT" \
+              #--finalize \
+              ${{ inputs.sentry_debug == true && '--log-level debug' || '' }}
+            echo "----- Creating Sentry release ($RELEASE_NAME) completed -----"; echo ""
+            #
             echo ""; echo "----- Uploading AAB to Sentry executed... -----"
             sentry-cli build upload "$AAB_FILE" \
-              --version "game2048@${{ env.VERSION }}" \
               --org "$SENTRY_ORG" \
               --project "$SENTRY_PROJECT" \
               --build-configuration Release \
