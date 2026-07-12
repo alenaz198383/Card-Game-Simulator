@@ -19,7 +19,7 @@ on:
   workflow_dispatch:
     inputs:
       custom_build_version:
-        description: 'Версия сборки (формат 1.2.3). Оставьте пустым, чтобы взять из buildVersion.txt'
+        description: 'Версия сборки (формат 1.2.3). Оставьте пустым, чтобы взять из ProjectSettings/ProjectSettings.asset'
         required: false
         type: string
         default: ''
@@ -409,6 +409,7 @@ jobs:
             echo "Using: $AAB_FILE"
             echo ""; echo "----- Uploading AAB to Sentry executed... -----"
             sentry-cli build upload "$AAB_FILE" \
+              --version "game2048@${{ env.VERSION }}" \
               --org "$SENTRY_ORG" \
               --project "$SENTRY_PROJECT" \
               --build-configuration Release \
