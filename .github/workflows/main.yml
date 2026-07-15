@@ -217,15 +217,37 @@ jobs:
           cd ./Card-Game-Simulator/
           mkdir -p Assets/Plugins/Sentry/
           echo "$SENTRY_CLI_OPTIONS" > Assets/Plugins/Sentry/SentryCliOptions.asset
-          androidVersionCode=$(cat ProjectSettings/androidVersionCode.txt | tr -d '[:space:]')
-          buildVersion=$(cat ProjectSettings/buildVersion.txt | tr -d '[:space:]')
-          echo "Detected version: $buildVersion, code: $androidVersionCode"
-          #
-          DEST="ProjectSettings/ProjectSettings.asset"
-          cp "$DEST" "$DEST.bak"
-          #
-          sed -i "s/^  bundleVersion: .*/  bundleVersion: $buildVersion/" "$DEST"
-          sed -i "s/^  AndroidBundleVersionCode: .*/  AndroidBundleVersionCode: $androidVersionCode/" "$DEST"
+
+      #- name: Restore Library cache from R2
+      #  id: restore_library_cache
+      #  env:
+      #    AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      #    AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      #    AWS_DEFAULT_REGION: us-east-1
+      #    R2_BUCKET: ${{ secrets.R2_BUCKET_NAME }}
+      #    R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+      #    CACHE_KEY: Library-Android-${{ hashFiles('Packages/manifest.json', 'Packages/packages-lock.json', 'ProjectSettings/ProjectSettings.asset', 'ProjectSettings/ProjectVersion.txt', 'Assets/Settings/Build Profiles/Android_Release_APK.asset', 'Assets/Settings/Build Profiles/Android_Release_AAB.asset') }}
+      #  run: |
+      #    echo "Looking for cache: $CACHE_KEY"
+      #    if aws s3 cp "s3://$R2_BUCKET/$CACHE_KEY" Library.tar.zst --endpoint-url $R2_ENDPOINT --quiet; then
+      #      echo "Cache found, extracting..."
+      #      tar -I zstd -xf Library.tar.zst
+      #      rm Library.tar.zst
+      #      source .github/scripts/helpers.sh
+      #      check_folder ./
+      #      check_folder "Library/"
+      #      rm -rf Library/
+      #    else
+      #      echo "Cache not found. Nothing to download."
+      #    fi
+
+      - name: Cache Library
+        uses: actions/cache@v6.1.0
+        with:
+          path: Library
+          key: Library-Android-${{ hashFiles('Packages/manifest.json', 'Packages/packages-lock.json', 'ProjectSettings/ProjectSettings.asset', 'ProjectSettings/ProjectVersion.txt', 'Assets/Settings/Build Profiles/Android_Release_APK.asset', 'Assets/Settings/Build Profiles/Android_Release_AAB.asset') }}-${{ matrix.exportMode == 'apk' && 'apk' || 'aab' }}
+          restore-keys: |
+            Library-Android-${{ hashFiles('Packages/manifest.json', 'Packages/packages-lock.json', 'ProjectSettings/ProjectSettings.asset', 'ProjectSettings/ProjectVersion.txt', 'Assets/Settings/Build Profiles/Android_Release_APK.asset', 'Assets/Settings/Build Profiles/Android_Release_AAB.asset') }}-
 
       - name: Extract Build Versions (File or Input)
         run: |
@@ -262,48 +284,26 @@ jobs:
             echo "Parsed components: X=$X, Y=$Y, Z=$Z"
             echo "Calculated ANDROID_VERSION_CODE: $ANDROID_CODE"
           else
-            BUILD_VERSION=$(grep -oP 'bundleVersion:\s*\K[\d.]+' ProjectSettings/ProjectSettings.asset)
-            ANDROID_CODE=$(grep -oP 'AndroidBundleVersionCode:\s*\K\d+' ProjectSettings/ProjectSettings.asset)
+            ANDROID_CODE=$(cat ProjectSettings/androidVersionCode.txt | tr -d '[:space:]')
+            BUILD_VERSION=$(cat ProjectSettings/buildVersion.txt | tr -d '[:space:]')
           fi
           #
-          echo "VERSION=$BUILD_VERSION" >> "$GITHUB_ENV"
-          echo "ANDROID_VERSION_CODE=$ANDROID_CODE" >> "$GITHUB_ENV"
+          DEST="ProjectSettings/ProjectSettings.asset"
+          cp "$DEST" "$DEST.bak"
+          #
+          sed -i "s/^  bundleVersion: .*/  bundleVersion: $BUILD_VERSION/" "$DEST"
+          sed -i "s/^  AndroidBundleVersionCode: .*/  AndroidBundleVersionCode: $ANDROID_CODE/" "$DEST"
+          #
+          PROJECT_BUILD_VERSION=$(grep -oP 'bundleVersion:\s*\K[\d.]+' ProjectSettings/ProjectSettings.asset)
+          PROJECT_ANDROID_CODE=$(grep -oP 'AndroidBundleVersionCode:\s*\K\d+' ProjectSettings/ProjectSettings.asset)
+          #
+          echo "VERSION=$PROJECT_BUILD_VERSION" >> "$GITHUB_ENV"
+          echo "ANDROID_VERSION_CODE=$PROJECT_ANDROID_CODE" >> "$GITHUB_ENV"
 
       - name: Show Final Using Versions
         run: |
           echo "Final using VERSION: ${{ env.VERSION }}"
           echo "Final using ANDROID_VERSION_CODE: ${{ env.ANDROID_VERSION_CODE }}"
-
-      #- name: Restore Library cache from R2
-      #  id: restore_library_cache
-      #  env:
-      #    AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-      #    AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-      #    AWS_DEFAULT_REGION: us-east-1
-      #    R2_BUCKET: ${{ secrets.R2_BUCKET_NAME }}
-      #    R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
-      #    CACHE_KEY: Library-Android-${{ hashFiles('Packages/manifest.json', 'Packages/packages-lock.json', 'ProjectSettings/ProjectSettings.asset', 'ProjectSettings/ProjectVersion.txt', 'Assets/Settings/Build Profiles/Android_Release_APK.asset', 'Assets/Settings/Build Profiles/Android_Release_AAB.asset') }}
-      #  run: |
-      #    echo "Looking for cache: $CACHE_KEY"
-      #    if aws s3 cp "s3://$R2_BUCKET/$CACHE_KEY" Library.tar.zst --endpoint-url $R2_ENDPOINT --quiet; then
-      #      echo "Cache found, extracting..."
-      #      tar -I zstd -xf Library.tar.zst
-      #      rm Library.tar.zst
-      #      source .github/scripts/helpers.sh
-      #      check_folder ./
-      #      check_folder "Library/"
-      #      rm -rf Library/
-      #    else
-      #      echo "Cache not found. Nothing to download."
-      #    fi
-
-      - name: Cache Library
-        uses: actions/cache@v6.1.0
-        with:
-          path: Library
-          key: Library-Android-${{ hashFiles('Packages/manifest.json', 'Packages/packages-lock.json', 'ProjectSettings/ProjectSettings.asset', 'ProjectSettings/ProjectVersion.txt', 'Assets/Settings/Build Profiles/Android_Release_APK.asset', 'Assets/Settings/Build Profiles/Android_Release_AAB.asset') }}-${{ matrix.exportMode == 'apk' && 'apk' || 'aab' }}
-          restore-keys: |
-            Library-Android-${{ hashFiles('Packages/manifest.json', 'Packages/packages-lock.json', 'ProjectSettings/ProjectSettings.asset', 'ProjectSettings/ProjectVersion.txt', 'Assets/Settings/Build Profiles/Android_Release_APK.asset', 'Assets/Settings/Build Profiles/Android_Release_AAB.asset') }}-
 
       - name: 📈 Install sentry-cli
         if: matrix.exportMode == 'aab'
