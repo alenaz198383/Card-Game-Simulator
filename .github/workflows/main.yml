@@ -1,4 +1,4 @@
-name: Test, Build, and Deploy with GameCI
+name: Build with GameCI
 
 permissions:
   actions: write # To cancel runs (gh run cancel) and delete the cache
@@ -356,16 +356,8 @@ jobs:
         if: steps.buildStep.outcome == 'success'
         run: |
           DEST="ProjectSettings/ProjectSettings.asset"
-          chmod +x .github/scripts/helpers.sh && source .github/scripts/helpers.sh
-          check_file "$DEST"
-          check_file "$DEST.bak"
-          #
           rm "$DEST"
-          check_file "$DEST"
-          #
           mv "$DEST.bak" "$DEST"
-          check_file "$DEST"
-          check_file "$DEST.bak"
 
       #- name: Upload Build as GitHub artifact
       #  uses: actions/upload-artifact@v7.0.1
@@ -548,3 +540,13 @@ jobs:
       #    else
       #      echo "Library folder not found, skipping cache save."
       #    fi
+
+      - name: Upload Gradle files as artifact
+        run: |
+          find . -type f \( -iname "*gradle*" \) | zip gradle-files.zip -@
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: gradle-files
+          path: gradle-files.zip
