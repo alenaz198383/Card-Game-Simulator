@@ -550,3 +550,9 @@ jobs:
         with:
           name: gradle-files
           path: gradle-files.zip
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: Firebase_m2repository
+          path: Assets/GeneratedLocalRepo/Firebase/m2repository
