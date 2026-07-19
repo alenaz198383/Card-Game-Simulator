@@ -342,7 +342,7 @@ jobs:
           androidKeyaliasName: my-key-alias
           androidKeyaliasPass: ${{ secrets.ANDROID_KEYALIAS_PASS }}
           androidTargetSdkVersion: AndroidApiLevel36
-          androidSymbolType: public
+          androidSymbolType: debugging
 
       - name: After build timestamp
         if: ${{ always() }}
