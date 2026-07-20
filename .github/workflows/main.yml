@@ -247,7 +247,7 @@ jobs:
 
       - name: Cache Library
         uses: actions/cache@v6.1.0
-        if: if: github.event_name != 'workflow_dispatch' || inputs.use_cached_library == true
+        if: github.event_name != 'workflow_dispatch' || inputs.use_cached_library == true
         with:
           path: Library
           key: Library-Android-${{ hashFiles('Packages/manifest.json', 'Packages/packages-lock.json', 'ProjectSettings/ProjectSettings.asset', 'ProjectSettings/ProjectVersion.txt', 'Assets/Settings/Build Profiles/Android_Release_APK.asset', 'Assets/Settings/Build Profiles/Android_Release_AAB.asset') }}-${{ matrix.exportMode == 'apk' && 'apk' || 'aab' }}
