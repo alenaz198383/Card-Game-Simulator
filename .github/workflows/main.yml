@@ -18,6 +18,10 @@ on:
       - published
   workflow_dispatch:
     inputs:
+      use_cached_library:
+        description: 'Use cached Library'
+        type: boolean
+        default: true
       custom_build_version:
         description: 'Версия сборки (формат 1.2.3). Оставьте пустым, чтобы взять из buildVersion.txt'
         required: false
@@ -243,6 +247,7 @@ jobs:
 
       - name: Cache Library
         uses: actions/cache@v6.1.0
+        if: if: github.event_name != 'workflow_dispatch' || inputs.use_cached_library == true
         with:
           path: Library
           key: Library-Android-${{ hashFiles('Packages/manifest.json', 'Packages/packages-lock.json', 'ProjectSettings/ProjectSettings.asset', 'ProjectSettings/ProjectVersion.txt', 'Assets/Settings/Build Profiles/Android_Release_APK.asset', 'Assets/Settings/Build Profiles/Android_Release_AAB.asset') }}-${{ matrix.exportMode == 'apk' && 'apk' || 'aab' }}
@@ -556,3 +561,63 @@ jobs:
         with:
           name: Firebase_m2repository
           path: Assets/GeneratedLocalRepo/Firebase/m2repository
+
+      - name: Upload mapping files as artifact
+        run: |
+          find . -type f \( -iname "*mapping*" \) | zip mapping-files.zip -@
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: mapping-files
+          path: mapping-files.zip
+
+      - name: Upload usage files as artifact
+        run: |
+          find . -type f \( -iname "*usage*" \) | zip usage-files.zip -@
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: usage-files
+          path: usage-files.zip
+
+      - name: Upload seeds files as artifact
+        run: |
+          find . -type f \( -iname "*seeds*" \) | zip seeds-files.zip -@
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: seeds-files
+          path: seeds-files.zip
+
+      - name: Upload configuration files as artifact
+        run: |
+          find . -type f \( -iname "*configuration*" \) | zip configuration-files.zip -@
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: configuration-files
+          path: configuration-files.zip
+
+      - name: Upload full-config files as artifact
+        run: |
+          find . -type f \( -iname "*full-config*" \) | zip full-config-files.zip -@
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: full-config-files
+          path: full-config-files.zip
+
+      - name: Upload gradle.properties files as artifact
+        run: |
+          find . -type f \( -iname "*gradle*properties*" \) | zip gradle.properties-files.zip -@
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: gradle.properties-files
+          path: gradle.properties-files.zip
