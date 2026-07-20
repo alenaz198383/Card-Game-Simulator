@@ -123,7 +123,7 @@ jobs:
           large-packages: false
 
       - name: Checkout Repository
-        uses: actions/checkout@v7.0.0
+        uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0
 
@@ -194,7 +194,7 @@ jobs:
           tool-cache: true
 
       - name: Checkout Repository
-        uses: actions/checkout@v7.0.0
+        uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0
 
@@ -436,7 +436,7 @@ jobs:
             exit 1
           fi
 
-      - name: 📈 Upload '*mapping*.txt' to Sentry
+      - name: 📈 Upload '*mapping*' to Sentry
         continue-on-error: true
         if: steps.buildStep.outcome == 'success' && matrix.exportMode == 'aab'
         env:
@@ -446,20 +446,19 @@ jobs:
         run: |
           AAB_FILE=$(find build -name "*.aab" | head -n 1)
           if [ -n "$AAB_FILE" ]; then
-            # Upload ProGuard mapping if it exists
-            MAPPING_FILE=$(find build -name "*mapping*.txt" | head -n 1)
+            echo "All '*mapping*' files found:"
+            find build -name "*mapping*"
+            # Upload R8/ProGuard mapping if it exists
+            MAPPING_FILE=$(find build -name "*mapping*" | head -n 1)
             if [ -n "$MAPPING_FILE" ]; then
-              echo "All '*mapping*.txt' files found:"
-              find build -name "*mapping*.txt"
-              echo "Using: $MAPPING_FILE"
               echo ""; echo "----- Uploading mapping to Sentry executed... -----"
-              find build -name "*mapping*.txt" | xargs sentry-cli upload-proguard \
+              find build -name "*mapping*" | xargs sentry-cli upload-proguard \
                 --org "$SENTRY_ORG" \
                 --project "$SENTRY_PROJECT" \
                 ${{ inputs.sentry_debug == true && '--log-level debug' || '' }}
               echo "----- Uploading mapping to Sentry completed -----"; echo ""
             else
-              echo "No '*mapping*.txt' found (minification may be disabled)"
+              echo "No '*mapping*' found (minification may be disabled)"
             fi
           else
             echo "AAB file not found."
