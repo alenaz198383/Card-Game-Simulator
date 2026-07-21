@@ -123,7 +123,7 @@ jobs:
           large-packages: false
 
       - name: Checkout Repository
-        uses: actions/checkout@v7.0.1
+        uses: actions/checkout@v7.0.0
         with:
           fetch-depth: 0
 
@@ -194,7 +194,7 @@ jobs:
           tool-cache: true
 
       - name: Checkout Repository
-        uses: actions/checkout@v7.0.1
+        uses: actions/checkout@v7.0.0
         with:
           fetch-depth: 0
 
