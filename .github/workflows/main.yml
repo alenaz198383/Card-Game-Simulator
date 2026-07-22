@@ -707,3 +707,18 @@ jobs:
           name: r8-analysis-report
           path: '**/r8analysis' # Звездочки найдут папку в любом месте проекта
           retention-days: 1
+
+      - name: Upload r8analysis files as artifact
+        timeout-minutes: 1
+        if: always() && steps.buildStep.outcome != 'skipped'
+        run: |
+          find . -type f \( -iname "*r8analysis*" \) | zip r8analysis-files.zip -@
+
+      - name: Upload artifact
+        timeout-minutes: 1
+        if: always() && steps.buildStep.outcome != 'skipped'
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: r8analysis-files
+          path: r8analysis-files.zip
+          retention-days: 1
