@@ -70,6 +70,7 @@ jobs:
     # runs-on: self-hosted
     steps:
       - name: 🔑 Check Unity license
+        timeout-minutes: 1
         id: checklicense
         env:
           UNITY_SERIAL_PERSONAL: ${{ secrets.UNITY_SERIAL_PERSONAL }}
@@ -88,6 +89,7 @@ jobs:
           fi
 
       - name: 🩺 Check 'ANDROID_' secrets
+        timeout-minutes: 1
         id: check_android_secrets
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
@@ -118,16 +120,19 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Free Disk Space
+        timeout-minutes: 5
         uses: jlumbroso/free-disk-space@v1.3.1
         with:
           large-packages: false
 
       - name: Checkout Repository
+        timeout-minutes: 1
         uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0
 
       - name: Restore cache from R2
+        timeout-minutes: 1
         id: restore_cache_r2
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
@@ -148,12 +153,14 @@ jobs:
           fi
 
       - name: Cache Library
+        timeout-minutes: 3
         uses: actions/cache@v6.1.0
         with:
           path: Library
           key: Library-test-${{ hashFiles('Packages/manifest.json', 'Packages/packages-lock.json', 'ProjectSettings/ProjectSettings.asset', 'ProjectSettings/ProjectVersion.txt') }}
 
       - name: Run EditMode Tests
+        timeout-minutes: 20
         uses: game-ci/unity-test-runner@v4.3.1
         env:
           UNITY_EMAIL: ${{ secrets.UNITY_EMAIL_PERSONAL }}
@@ -163,6 +170,7 @@ jobs:
           testMode: editmode
 
       #- name: Run PlayMode Tests
+      # timeout-minutes: 20
       #  uses: game-ci/unity-test-runner@v4.3.1
       #  env:
       #    UNITY_EMAIL: ${{ secrets.UNITY_EMAIL_PERSONAL }}
@@ -189,16 +197,19 @@ jobs:
     timeout-minutes: 90
     steps:
       - name: Free Disk Space
+        timeout-minutes: 5
         uses: jlumbroso/free-disk-space@v1.3.1
         with:
           tool-cache: true
 
       - name: Checkout Repository
+        timeout-minutes: 1
         uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0
 
       - name: Restore cache from R2
+        timeout-minutes: 1
         id: restore_cache_r2
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
@@ -223,6 +234,7 @@ jobs:
           echo "$SENTRY_CLI_OPTIONS" > Assets/Plugins/Sentry/SentryCliOptions.asset
 
       #- name: Restore Library cache from R2
+      # timeout-minutes: 1
       #  id: restore_library_cache
       #  env:
       #    AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
@@ -246,6 +258,7 @@ jobs:
       #    fi
 
       - name: Cache Library
+        timeout-minutes: 3
         uses: actions/cache@v6.1.0
         if: github.event_name != 'workflow_dispatch' || inputs.use_cached_library == true
         with:
@@ -255,6 +268,7 @@ jobs:
             Library-Android-${{ hashFiles('Packages/manifest.json', 'Packages/packages-lock.json', 'ProjectSettings/ProjectSettings.asset', 'ProjectSettings/ProjectVersion.txt', 'Assets/Settings/Build Profiles/Android_Release_APK.asset', 'Assets/Settings/Build Profiles/Android_Release_AAB.asset') }}-
 
       - name: Extract Build Versions (File or Input)
+        timeout-minutes: 1
         run: |
           CUSTOM_VER="${{ inputs.custom_build_version }}"
           #
@@ -306,16 +320,19 @@ jobs:
           echo "ANDROID_VERSION_CODE=$PROJECT_ANDROID_CODE" >> "$GITHUB_ENV"
 
       - name: Show Final Using Versions
+        timeout-minutes: 1
         run: |
           echo "Final using VERSION: ${{ env.VERSION }}"
           echo "Final using ANDROID_VERSION_CODE: ${{ env.ANDROID_VERSION_CODE }}"
 
       - name: 📈 Install sentry-cli
+        timeout-minutes: 1
         if: matrix.exportMode == 'aab'
         run: |
           curl -sL https://sentry.io/get-cli/ | bash
 
       - name: Before build timestamp
+        timeout-minutes: 1
         if: ${{ always() }}
         run: |
           date -u
@@ -323,6 +340,7 @@ jobs:
           free -h || true
 
       - name: 🦺 Build Android ${{ matrix.exportMode }}
+        timeout-minutes: 90
         id: buildStep
         uses: game-ci/unity-builder@v5.0.0
         env:
@@ -340,6 +358,7 @@ jobs:
           version: ${{ env.VERSION }}
           androidVersionCode: ${{ env.ANDROID_VERSION_CODE }}
           buildProfile: ${{ matrix.exportMode == 'apk' && 'Assets/Settings/Build Profiles/Android_Release_APK.asset' || 'Assets/Settings/Build Profiles/Android_Release_AAB.asset' }}
+          androidExportType: ${{ matrix.exportMode == 'apk' && 'androidPackage' || 'androidAppBundle' }}
           androidKeystoreName: 'my-release-key.jks'
           androidKeystoreBase64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
           androidKeystorePass: ${{ secrets.ANDROID_KEYSTORE_PASS }}
@@ -348,6 +367,7 @@ jobs:
           androidTargetSdkVersion: AndroidApiLevel36
 
       - name: After build timestamp
+        timeout-minutes: 1
         if: ${{ always() }}
         run: |
           date -u
@@ -355,6 +375,7 @@ jobs:
           free -h || true
 
       - name: Revert `ProjectSettings/ProjectSettings.asset`
+        timeout-minutes: 1
         continue-on-error: true
         if: steps.buildStep.outcome == 'success'
         run: |
@@ -363,6 +384,7 @@ jobs:
           mv "$DEST.bak" "$DEST"
 
       #- name: Upload Build as GitHub artifact
+      # timeout-minutes: 10
       #  uses: actions/upload-artifact@v7.0.1
       #  if: steps.buildStep.outcome != 'skipped'
       #  with:
@@ -371,6 +393,7 @@ jobs:
       #    retention-days: 1
 
       - name: Upload Build to R2
+        timeout-minutes: 1
         continue-on-error: true
         if: steps.buildStep.outcome != 'skipped'
         env:
@@ -381,12 +404,25 @@ jobs:
           R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
         run: |
           if [ -d "build/Android" ]; then
+            source .github/scripts/helpers.sh
             DIR="artifacts/build/Android"
             SRC="${DIR}/Android.${{ matrix.exportMode }}"
             DEST="${DIR}/${{ env.ANDROID_VERSION_CODE }}.${{ matrix.exportMode }}"
+            check_folder "artifacts/"
             mkdir -p artifacts
+            check_folder "artifacts/"
+            check_folder "build/"
+            check_folder "build/Android/"
+            check_file   "build/Android/Android.aab"
             cp -r "build/" "artifacts/"
+            check_folder "artifacts/"
+            check_folder "artifacts/build/"
+            check_folder "artifacts/build/Android/"
+            check_file   "$SRC"
+            check_file   "$DEST"
             mv "$SRC" "$DEST"
+            check_file   "$SRC"
+            check_file   "$DEST"
             zst_file_name="${{ env.ANDROID_VERSION_CODE }}.${{ matrix.exportMode }}.tar.zst"
             tar -I 'zstd -9' -cf "artifacts/$zst_file_name" "$DIR/"
             aws s3 cp "artifacts/$zst_file_name" "s3://$R2_BUCKET/$zst_file_name" --endpoint-url $R2_ENDPOINT --quiet
@@ -396,6 +432,7 @@ jobs:
           fi
 
       - name: 📈 Upload AAB to Sentry for Size Tracking
+        timeout-minutes: 1
         continue-on-error: true
         if: steps.buildStep.outcome == 'success' && matrix.exportMode == 'aab'
         env:
@@ -435,6 +472,7 @@ jobs:
           fi
 
       - name: 📈 Upload '*mapping*' to Sentry
+        timeout-minutes: 1
         continue-on-error: true
         if: steps.buildStep.outcome == 'success' && matrix.exportMode == 'aab'
         env:
@@ -464,6 +502,7 @@ jobs:
           fi
 
       - name: 📈 Upload symbol's files to Sentry
+        timeout-minutes: 1
         continue-on-error: true
         if: steps.buildStep.outcome == 'success' && matrix.exportMode == 'aab'
         env:
@@ -487,6 +526,7 @@ jobs:
           fi
 
       - name: 📈 Upload symbol's files to Sentry
+        timeout-minutes: 2
         continue-on-error: true
         if: steps.buildStep.outcome == 'success' && matrix.exportMode == 'aab'
         env:
@@ -510,6 +550,7 @@ jobs:
           fi
 
       - name: Post android build info
+        timeout-minutes: 1
         if: always()
         run: |
           echo "##### Build Step Info" >> $GITHUB_STEP_SUMMARY
@@ -520,6 +561,7 @@ jobs:
           echo "- Build Step conclusion: \`${{ steps.buildStep.conclusion }}\`" >> $GITHUB_STEP_SUMMARY
 
       #- name: Save Library cache to R2
+      # timeout-minutes: 10
       #  id: save_library_cache
       #  if: steps.buildStep.outcome == 'success'
       #  env:
@@ -544,11 +586,13 @@ jobs:
       #    fi
 
       - name: Upload Gradle files as artifact
+        timeout-minutes: 1
         if: always() && steps.buildStep.outcome != 'skipped'
         run: |
           find . -type f \( -iname "*gradle*" \) | zip gradle-files.zip -@
 
       - name: Upload artifact
+        timeout-minutes: 1
         if: always() && steps.buildStep.outcome != 'skipped'
         uses: actions/upload-artifact@v7.0.1
         with:
@@ -557,6 +601,7 @@ jobs:
           retention-days: 1
 
       - name: Upload artifact
+        timeout-minutes: 1
         if: always() && steps.buildStep.outcome != 'skipped'
         uses: actions/upload-artifact@v7.0.1
         with:
@@ -565,11 +610,13 @@ jobs:
           retention-days: 1
 
       - name: Upload mapping files as artifact
+        timeout-minutes: 1
         if: always() && steps.buildStep.outcome != 'skipped'
         run: |
           find . -type f \( -iname "*mapping*" \) | zip mapping-files.zip -@
 
       - name: Upload artifact
+        timeout-minutes: 1
         if: always() && steps.buildStep.outcome != 'skipped'
         uses: actions/upload-artifact@v7.0.1
         with:
@@ -578,11 +625,13 @@ jobs:
           retention-days: 1
 
       - name: Upload usage files as artifact
+        timeout-minutes: 1
         if: always() && steps.buildStep.outcome != 'skipped'
         run: |
           find . -type f \( -iname "*usage*" \) | zip usage-files.zip -@
 
       - name: Upload artifact
+        timeout-minutes: 1
         if: always() && steps.buildStep.outcome != 'skipped'
         uses: actions/upload-artifact@v7.0.1
         with:
@@ -591,11 +640,13 @@ jobs:
           retention-days: 1
 
       - name: Upload seeds files as artifact
+        timeout-minutes: 1
         if: always() && steps.buildStep.outcome != 'skipped'
         run: |
           find . -type f \( -iname "*seeds*" \) | zip seeds-files.zip -@
 
       - name: Upload artifact
+        timeout-minutes: 1
         if: always() && steps.buildStep.outcome != 'skipped'
         uses: actions/upload-artifact@v7.0.1
         with:
@@ -604,11 +655,13 @@ jobs:
           retention-days: 1
 
       - name: Upload configuration files as artifact
+        timeout-minutes: 1
         if: always() && steps.buildStep.outcome != 'skipped'
         run: |
           find . -type f \( -iname "*configuration*" \) | zip configuration-files.zip -@
 
       - name: Upload artifact
+        timeout-minutes: 1
         if: always() && steps.buildStep.outcome != 'skipped'
         uses: actions/upload-artifact@v7.0.1
         with:
@@ -617,11 +670,13 @@ jobs:
           retention-days: 1
 
       - name: Upload full-config files as artifact
+        timeout-minutes: 1
         if: always() && steps.buildStep.outcome != 'skipped'
         run: |
           find . -type f \( -iname "*full-config*" \) | zip full-config-files.zip -@
 
       - name: Upload artifact
+        timeout-minutes: 1
         if: always() && steps.buildStep.outcome != 'skipped'
         uses: actions/upload-artifact@v7.0.1
         with:
@@ -630,11 +685,13 @@ jobs:
           retention-days: 1
 
       - name: Upload gradle.properties files as artifact
+        timeout-minutes: 1
         if: always() && steps.buildStep.outcome != 'skipped'
         run: |
           find . -type f \( -iname "*gradle*properties*" \) | zip gradle.properties-files.zip -@
 
       - name: Upload artifact
+        timeout-minutes: 1
         if: always() && steps.buildStep.outcome != 'skipped'
         uses: actions/upload-artifact@v7.0.1
         with:
@@ -643,6 +700,7 @@ jobs:
           retention-days: 1
 
       - name: Upload R8 Configuration Analyzer Report
+        timeout-minutes: 1
         uses: actions/upload-artifact@v7.0.1
         if: always()
         with:
