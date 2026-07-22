@@ -332,6 +332,7 @@ jobs:
           curl -sL https://sentry.io/get-cli/ | bash
 
       - name: Before build timestamp
+        continue-on-error: true
         timeout-minutes: 1
         if: ${{ always() }}
         run: |
@@ -368,20 +369,12 @@ jobs:
 
       - name: After build timestamp
         timeout-minutes: 1
+        continue-on-error: true
         if: ${{ always() }}
         run: |
           date -u
           df -h
           free -h || true
-
-      - name: Revert `ProjectSettings/ProjectSettings.asset`
-        timeout-minutes: 1
-        continue-on-error: true
-        if: steps.buildStep.outcome == 'success'
-        run: |
-          DEST="ProjectSettings/ProjectSettings.asset"
-          rm "$DEST"
-          mv "$DEST.bak" "$DEST"
 
       #- name: Upload Build as GitHub artifact
       # timeout-minutes: 10
@@ -404,25 +397,12 @@ jobs:
           R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
         run: |
           if [ -d "build/Android" ]; then
-            source .github/scripts/helpers.sh
             DIR="artifacts/build/Android"
             SRC="${DIR}/Android.${{ matrix.exportMode }}"
             DEST="${DIR}/${{ env.ANDROID_VERSION_CODE }}.${{ matrix.exportMode }}"
-            check_folder "artifacts/"
             mkdir -p artifacts
-            check_folder "artifacts/"
-            check_folder "build/"
-            check_folder "build/Android/"
-            check_file   "build/Android/Android.aab"
             cp -r "build/" "artifacts/"
-            check_folder "artifacts/"
-            check_folder "artifacts/build/"
-            check_folder "artifacts/build/Android/"
-            check_file   "$SRC"
-            check_file   "$DEST"
             mv "$SRC" "$DEST"
-            check_file   "$SRC"
-            check_file   "$DEST"
             zst_file_name="${{ env.ANDROID_VERSION_CODE }}.${{ matrix.exportMode }}.tar.zst"
             tar -I 'zstd -9' -cf "artifacts/$zst_file_name" "$DIR/"
             aws s3 cp "artifacts/$zst_file_name" "s3://$R2_BUCKET/$zst_file_name" --endpoint-url $R2_ENDPOINT --quiet
@@ -551,6 +531,7 @@ jobs:
 
       - name: Post android build info
         timeout-minutes: 1
+        continue-on-error: true
         if: always()
         run: |
           echo "##### Build Step Info" >> $GITHUB_STEP_SUMMARY
@@ -712,13 +693,22 @@ jobs:
         timeout-minutes: 1
         if: always() && steps.buildStep.outcome != 'skipped'
         run: |
-          find . -type f \( -iname "*r8analysis*" \) | zip r8analysis-files.zip -@
+          find . \( -iname "*r8analysis*" \) | zip r8analysis.zip -@
 
       - name: Upload artifact
         timeout-minutes: 1
         if: always() && steps.buildStep.outcome != 'skipped'
         uses: actions/upload-artifact@v7.0.1
         with:
-          name: r8analysis-files
-          path: r8analysis-files.zip
+          name: r8analysis
+          path: r8analysis.zip
           retention-days: 1
+
+      - name: Revert `ProjectSettings/ProjectSettings.asset`
+        timeout-minutes: 1
+        continue-on-error: true
+        if: steps.buildStep.outcome == 'success'
+        run: |
+          DEST="ProjectSettings/ProjectSettings.asset"
+          rm "$DEST"
+          mv "$DEST.bak" "$DEST"
