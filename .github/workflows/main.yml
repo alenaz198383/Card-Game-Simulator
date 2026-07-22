@@ -126,7 +126,7 @@ jobs:
           large-packages: false
 
       - name: Checkout Repository
-        timeout-minutes: 1
+        timeout-minutes: 2
         uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0
@@ -203,7 +203,7 @@ jobs:
           tool-cache: true
 
       - name: Checkout Repository
-        timeout-minutes: 1
+        timeout-minutes: 2
         uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0
