@@ -119,11 +119,11 @@ jobs:
       contents: write
     timeout-minutes: 30
     steps:
-      - name: Free Disk Space
-        timeout-minutes: 6
-        uses: jlumbroso/free-disk-space@v1.3.1
-        with:
-          large-packages: false
+      #- name: Free Disk Space
+      #  timeout-minutes: 6
+      #  uses: jlumbroso/free-disk-space@v1.3.1
+      #  with:
+      #    large-packages: false
 
       #- name: Checkout Repository
       #  timeout-minutes: 3
@@ -196,11 +196,11 @@ jobs:
       buildVersion: ${{ steps.buildStep.outputs.buildVersion }}
     timeout-minutes: 90
     steps:
-      - name: Free Disk Space
-        timeout-minutes: 6
-        uses: jlumbroso/free-disk-space@v1.3.1
-        with:
-          tool-cache: true
+      #- name: Free Disk Space
+      #  timeout-minutes: 6
+      #  uses: jlumbroso/free-disk-space@v1.3.1
+      #  with:
+      #    tool-cache: true
 
       #- name: Checkout Repository
       #  timeout-minutes: 2
