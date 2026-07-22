@@ -705,5 +705,5 @@ jobs:
         if: always()
         with:
           name: r8-analysis-report
-          path: '**/tmp/r8analysis' # Звездочки найдут папку в любом месте проекта
+          path: '**/r8analysis' # Звездочки найдут папку в любом месте проекта
           retention-days: 1
