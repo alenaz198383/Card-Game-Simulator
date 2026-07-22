@@ -120,7 +120,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Free Disk Space
-        timeout-minutes: 5
+        timeout-minutes: 6
         uses: jlumbroso/free-disk-space@v1.3.1
         with:
           large-packages: false
@@ -197,7 +197,7 @@ jobs:
     timeout-minutes: 90
     steps:
       - name: Free Disk Space
-        timeout-minutes: 5
+        timeout-minutes: 6
         uses: jlumbroso/free-disk-space@v1.3.1
         with:
           tool-cache: true
