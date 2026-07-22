@@ -125,11 +125,11 @@ jobs:
         with:
           large-packages: false
 
-      - name: Checkout Repository
-        timeout-minutes: 2
-        uses: actions/checkout@v7.0.1
-        with:
-          fetch-depth: 0
+      #- name: Checkout Repository
+      #  timeout-minutes: 3
+      #  uses: actions/checkout@v7.0.1
+      #  with:
+      #    fetch-depth: 0
 
       - name: Restore cache from R2
         timeout-minutes: 1
@@ -202,11 +202,11 @@ jobs:
         with:
           tool-cache: true
 
-      - name: Checkout Repository
-        timeout-minutes: 2
-        uses: actions/checkout@v7.0.1
-        with:
-          fetch-depth: 0
+      #- name: Checkout Repository
+      #  timeout-minutes: 2
+      #  uses: actions/checkout@v7.0.1
+      #  with:
+      #    fetch-depth: 0
 
       - name: Restore cache from R2
         timeout-minutes: 1
