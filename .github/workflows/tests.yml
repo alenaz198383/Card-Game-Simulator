@@ -13,8 +13,8 @@ env:
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 on:
-  schedule:
-    - cron: '0 0 * * *' # At 00:00 UTC-3 # https://crontab.guru/#0_0_*_*_*
+  #schedule:
+  #  - cron: '0 0 * * *' # At 00:00 UTC-3 # https://crontab.guru/#0_0_*_*_*
   workflow_dispatch: # Allows manual launch from the Actions tab
 
 jobs:
