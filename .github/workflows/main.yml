@@ -554,6 +554,7 @@ jobs:
         with:
           name: gradle-files
           path: gradle-files.zip
+          retention-days: 1
 
       - name: Upload artifact
         if: always() && steps.buildStep.outcome != 'skipped'
@@ -561,6 +562,7 @@ jobs:
         with:
           name: Firebase_m2repository
           path: Assets/GeneratedLocalRepo/Firebase/m2repository
+          retention-days: 1
 
       - name: Upload mapping files as artifact
         if: always() && steps.buildStep.outcome != 'skipped'
@@ -573,6 +575,7 @@ jobs:
         with:
           name: mapping-files
           path: mapping-files.zip
+          retention-days: 1
 
       - name: Upload usage files as artifact
         if: always() && steps.buildStep.outcome != 'skipped'
@@ -585,6 +588,7 @@ jobs:
         with:
           name: usage-files
           path: usage-files.zip
+          retention-days: 1
 
       - name: Upload seeds files as artifact
         if: always() && steps.buildStep.outcome != 'skipped'
@@ -597,6 +601,7 @@ jobs:
         with:
           name: seeds-files
           path: seeds-files.zip
+          retention-days: 1
 
       - name: Upload configuration files as artifact
         if: always() && steps.buildStep.outcome != 'skipped'
@@ -609,6 +614,7 @@ jobs:
         with:
           name: configuration-files
           path: configuration-files.zip
+          retention-days: 1
 
       - name: Upload full-config files as artifact
         if: always() && steps.buildStep.outcome != 'skipped'
@@ -621,6 +627,7 @@ jobs:
         with:
           name: full-config-files
           path: full-config-files.zip
+          retention-days: 1
 
       - name: Upload gradle.properties files as artifact
         if: always() && steps.buildStep.outcome != 'skipped'
@@ -633,3 +640,12 @@ jobs:
         with:
           name: gradle.properties-files
           path: gradle.properties-files.zip
+          retention-days: 1
+
+      - name: Upload R8 Configuration Analyzer Report
+        uses: actions/upload-artifact@v7.0.1
+        if: always()
+        with:
+          name: r8-analysis-report
+          path: '**/tmp/r8analysis' # Звездочки найдут папку в любом месте проекта
+          retention-days: 1
