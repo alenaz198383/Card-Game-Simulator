@@ -797,7 +797,6 @@ jobs:
         if: always() && steps.buildStep.outcome == 'success'
         run: |
           source .github/scripts/helpers.sh
-          #check_folder ${{ github.workspace }}/r8analysis
           #
           # Обновляем Gradle до 9.5.1
           check_folder  ${{ env.GRADLE_PROJECT }}
@@ -818,9 +817,9 @@ jobs:
           cat_file "${{ env.GRADLE_PROJECT }}/build.gradle"
           #
           echo "=== gradle-wrapper.properties ==="
-          cat "${{ env.GRADLE_PROJECT }}/gradle/wrapper/gradle-wrapper.properties"
+          cat_file "${{ env.GRADLE_PROJECT }}/gradle/wrapper/gradle-wrapper.properties"
           echo "=== build.gradle ==="
-          cat "${{ env.GRADLE_PROJECT }}/build.gradle"
+          cat_file "${{ env.GRADLE_PROJECT }}/build.gradle"
           #
           check_folder ${{ github.workspace }}/r8analysis
           rm -rf ${{ github.workspace }}/r8analysis
@@ -863,9 +862,13 @@ jobs:
           done
           #
           # Убираем ndkVersion - пусть берёт из найденного NDK
-          cat_file "${{ env.GRADLE_PROJECT }}/launcher/build.gradle"
-          find "${{ env.GRADLE_PROJECT }}" -name "build.gradle" | xargs sed -i '/ndkVersion/d'
-          cat_file "${{ env.GRADLE_PROJECT }}/launcher/build.gradle"
+          find "${{ env.GRADLE_PROJECT }}" -name "build.gradle" | while read f; do
+            echo "Убираем ndkVersion из $f..."
+            cat_file $f
+            sed -i '/ndkVersion/d' "$f"
+            echo "Patched $f."
+            cat_file $f
+          done
           #
           echo "=== local.properties ==="
           cat_file "${{ env.GRADLE_PROJECT }}/local.properties"
@@ -892,12 +895,29 @@ jobs:
           find ${{ github.workspace }}/r8analysis -type f 2>/dev/null || echo "r8analysis пуст"
           find ${{ env.GRADLE_PROJECT }} -name "*keepradius*" -o -name "*.pb" 2>/dev/null || true
 
+      - name: Upload R8 Configuration Analyzer Report
+        timeout-minutes: 1
+        uses: actions/upload-artifact@v7.0.1
+        if: always()
+        with:
+          name: r8-tmp-r8analysis_2
+          path: '/tmp/r8analysis'
+          retention-days: 1
+
       - name: Upload R8 Configuration Analysis
         if: always() && steps.buildStep.outcome == 'success'
         uses: actions/upload-artifact@v7.0.1
         with:
-          name: r8-configuration-analysis
+          name: r8-configuration-analysis_asd1
           path: '${{ github.workspace }}/r8analysis'
+          retention-days: 1
+
+      - name: Upload R8 Configuration Analysis
+        if: always() && steps.buildStep.outcome == 'success'
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: r8-configuration-analysis_asd2
+          path: '/home/runner/work/Card-Game-Simulator/Card-Game-Simulator/r8analysis'
           retention-days: 1
 
       - name: Check /github/workspace/r8analysis
