@@ -805,21 +805,21 @@ jobs:
           source .github/scripts/helpers.sh
           #check_folder ${{ github.workspace }}/r8analysis
           #
-          # Обновляем Gradle до 9.3.0
+          # Обновляем Gradle до 9.3.1
           check_folder $GRADLE_PROJECT
           check_folder "$GRADLE_PROJECT/gradle/"
           check_folder "$GRADLE_PROJECT/gradle/wrapper/"
           cat_file "$GRADLE_PROJECT/gradle/wrapper/gradle-wrapper.properties"
-          sed -i 's|distributionUrl=.*|distributionUrl=https\\://services.gradle.org/distributions/gradle-9.3.0-bin.zip|' \
+          sed -i 's|distributionUrl=.*|distributionUrl=https\\://services.gradle.org/distributions/gradle-9.3.1-bin.zip|' \
             "$GRADLE_PROJECT/gradle/wrapper/gradle-wrapper.properties"
           cat_file "$GRADLE_PROJECT/gradle/wrapper/gradle-wrapper.properties"
           #
-          # Обновляем AGP до 9.3.0
+          # Обновляем AGP до 9.1.1
           cat_file "$GRADLE_PROJECT/build.gradle"
-          sed -i "s|id 'com.android.application' version '9.0.1'|id 'com.android.application' version '9.3.0'|" \
+          sed -i "s|id 'com.android.application' version '9.0.1'|id 'com.android.application' version '9.1.1'|" \
             "$GRADLE_PROJECT/build.gradle"
           cat_file "$GRADLE_PROJECT/build.gradle"
-          sed -i "s|id 'com.android.library' version '9.0.1'|id 'com.android.library' version '9.3.0'|" \
+          sed -i "s|id 'com.android.library' version '9.0.1'|id 'com.android.library' version '9.1.1'|" \
             "$GRADLE_PROJECT/build.gradle"
           cat_file "$GRADLE_PROJECT/build.gradle"
           #
@@ -842,15 +842,15 @@ jobs:
           find / -iname "gradlew" 2>/dev/null
           find / -iname "build.gradle" 2>/dev/null
 
-      - name: Setup Gradle 9.3.0
+      - name: Setup Gradle 9.3.1
         if: always() && steps.buildStep.outcome != 'skipped'
         run: |
-          wget -q https://services.gradle.org/distributions/gradle-9.3.0-bin.zip -O /tmp/gradle-9.3.0-bin.zip
-          unzip -q /tmp/gradle-9.3.0-bin.zip -d /tmp/
+          wget -q https://services.gradle.org/distributions/gradle-9.3.1-bin.zip -O /tmp/gradle-9.3.1-bin.zip
+          unzip -q /tmp/gradle-9.3.1-bin.zip -d /tmp/
           source .github/scripts/helpers.sh
-          check_folder /tmp/gradle-9.3.0/bin/
-          check_file   /tmp/gradle-9.3.0/bin/gradle
-          echo "GRADLE_BIN=/tmp/gradle-9.3.0/bin/gradle" >> $GITHUB_ENV
+          check_folder /tmp/gradle-9.3.1/bin/
+          check_file   /tmp/gradle-9.3.1/bin/gradle
+          echo "GRADLE_BIN=/tmp/gradle-9.3.1/bin/gradle" >> $GITHUB_ENV
 
       - name: Run R8 Configuration Analyzer
         if: always() && steps.buildStep.outcome != 'skipped'
