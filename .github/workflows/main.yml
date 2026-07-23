@@ -832,13 +832,6 @@ jobs:
         run: |
           source .github/scripts/helpers.sh
           #
-          echo "====================================================="
-          grep -n  "ndkVersion" "$GRADLE_PROJECT/shared/common.gradle" || true
-          grep -n  "ndkPath"    "$GRADLE_PROJECT/shared/common.gradle" || true
-          grep -rn "ndkVersion" "$GRADLE_PROJECT" 2>/dev/null || true  # без --include, все файлы
-          grep -rn "ndkPath"    "$GRADLE_PROJECT" 2>/dev/null || true  # без --include, все файлы
-          echo "====================================================="
-          #
           check_folder "${{ env.GRADLE_PROJECT }}/"
           #
           # Меняем владельца на runner
@@ -894,14 +887,20 @@ jobs:
           grep -rn "ndkVersion" "${{ env.GRADLE_PROJECT }}" --include="*.gradle" || true
           echo "====================================================="
           echo "=== apply from lines ===" 
-          grep -n "apply from" "$GRADLE_PROJECT/launcher/build.gradle" || true
+          grep -n "apply from" "${{ env.GRADLE_PROJECT }}/launcher/build.gradle" || true
           echo "====================================================="
           #
-          grep -n  "ndkVersion" "$GRADLE_PROJECT/shared/common.gradle" || true
-          grep -n  "ndkPath"    "$GRADLE_PROJECT/shared/common.gradle" || true
-          grep -rn "ndkVersion" "$GRADLE_PROJECT" 2>/dev/null || true  # без --include, все файлы
-          grep -rn "ndkPath"    "$GRADLE_PROJECT" 2>/dev/null || true  # без --include, все файлы
-          echo "====================================================="
+          #grep -n  "ndkVersion" "${{ env.GRADLE_PROJECT }}/shared/common.gradle" || true
+          #grep -n  "ndkPath"    "${{ env.GRADLE_PROJECT }}/shared/common.gradle" || true
+          #grep -rn "ndkVersion" "${{ env.GRADLE_PROJECT }}" 2>/dev/null || true  # без --include, все файлы
+          #grep -rn "ndkPath"    "${{ env.GRADLE_PROJECT }}" 2>/dev/null || true  # без --include, все файлы
+          #echo "====================================================="
+          #
+          # Заменяем Docker-путь на реальный путь хост-раннера
+          sed -i "s|/github/workspace|${{ github.workspace }}|g" "${{ env.GRADLE_PROJECT }}/settings.gradle"
+          #
+          echo "=== settings.gradle maven repos ==="
+          grep -A2 "maven" "${{ env.GRADLE_PROJECT }}/settings.gradle"
 
       - name: Run R8 Configuration Analyzer
         if: always() && steps.buildStep.outcome != 'skipped'
