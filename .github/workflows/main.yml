@@ -244,9 +244,6 @@ jobs:
           #
           mkdir -p ${{ github.workspace }}/r8analysis
           mkdir -p /tmp/r8analysis
-          source .github/scripts/helpers.sh
-          check_folder ${{ github.workspace }}/r8analysis
-          check_folder /tmp/r8analysis
           echo "GRADLE_OPTS=-Dcom.android.tools.r8.dumpkeepradiushtmltodirectory=${{ github.workspace }}/r8analysis" >> $GITHUB_ENV
 
       #- name: Restore Library cache from R2
@@ -837,9 +834,15 @@ jobs:
           GRADLE_PROJECT="Library/Bee/Android/Prj/IL2CPP/Gradle"
           source .github/scripts/helpers.sh
           #
-          # Исправляем SDK path
           check_folder "$GRADLE_PROJECT/"
+          #
+          # Меняем владельца на runner
+          sudo chown -R runner:runner "$GRADLE_PROJECT"
+          #
+          # Исправляем SDK path
+          cat_file "$GRADLE_PROJECT/local.properties"
           echo "sdk.dir=$ANDROID_SDK_ROOT" > "$GRADLE_PROJECT/local.properties"
+          cat_file "$GRADLE_PROJECT/local.properties"
           #
           check_folder $ANDROID_SDK_ROOT/ndk/
           # Находим доступный NDK на раннере
