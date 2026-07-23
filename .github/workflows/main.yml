@@ -234,7 +234,10 @@ jobs:
           echo "$SENTRY_CLI_OPTIONS" > Assets/Plugins/Sentry/SentryCliOptions.asset
           #
           mkdir -p ${{ github.workspace }}/r8analysis
-          mkdir -p ./tmp/r8analysis
+          mkdir -p /tmp/r8analysis
+          source .github/scripts/helpers.sh
+          check_folder ${{ github.workspace }}/r8analysis
+          check_folder /tmp/r8analysis
           echo "GRADLE_OPTS=-Dcom.android.tools.r8.dumpkeepradiushtmltodirectory=${{ github.workspace }}/r8analysis" >> $GITHUB_ENV
 
       #- name: Restore Library cache from R2
@@ -356,6 +359,8 @@ jobs:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
           SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+          GRADLE_OPTS: "-Dcom.android.tools.r8.dumpkeepradiushtmltodirectory=/github/workspace/r8analysis"
+          R8_DUMP_KEEP_RADIUS: 'true'
         with:
           targetPlatform: Android
           customParameters: -SENTRY_AUTH_TOKEN ${{ secrets.SENTRY_AUTH_TOKEN }} -SENTRY_ORG ${{ secrets.SENTRY_ORG }} -SENTRY_PROJECT ${{ secrets.SENTRY_PROJECT }}
@@ -610,6 +615,21 @@ jobs:
           path: mapping-files.zip
           retention-days: 1
 
+      - name: Upload pb files as artifact
+        timeout-minutes: 1
+        if: always() && steps.buildStep.outcome != 'skipped'
+        run: |
+          find / \( -path /proc -o -path /sys \) -prune -o -type f \( -iname "*.pb" \) | zip pb-files.zip -@
+
+      - name: Upload pb
+        timeout-minutes: 1
+        if: always() && steps.buildStep.outcome != 'skipped'
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: pb-files
+          path: pb-files.zip
+          retention-days: 1
+
       - name: Upload usage files as artifact
         timeout-minutes: 1
         if: always() && steps.buildStep.outcome != 'skipped'
@@ -685,6 +705,14 @@ jobs:
           path: gradle.properties-files.zip
           retention-days: 1
 
+      - name: Check /github/workspace/r8analysis
+        timeout-minutes: 1
+        if: always() && steps.buildStep.outcome != 'skipped'
+        run: |
+          source .github/scripts/helpers.sh
+          check_folder ${{ github.workspace }}/r8analysis
+          check_folder /tmp/r8analysis
+
       - name: Upload R8 Configuration Analyzer Report
         timeout-minutes: 1
         uses: actions/upload-artifact@v7.0.1
@@ -692,6 +720,15 @@ jobs:
         with:
           name: r8-analysis-report
           path: '**/r8analysis' # Звездочки найдут папку в любом месте проекта
+          retention-days: 1
+
+      - name: Upload R8 Configuration Analyzer Report
+        timeout-minutes: 1
+        uses: actions/upload-artifact@v7.0.1
+        if: always()
+        with:
+          name: r8-tmp-r8analysis
+          path: '/tmp/r8analysis'
           retention-days: 1
 
       - name: Upload r8analysis files as artifact
@@ -718,6 +755,15 @@ jobs:
           path: '${{ github.workspace }}/r8analysis'
           retention-days: 1
 
+      - name: Upload r8analysis2
+        timeout-minutes: 1
+        if: always() && steps.buildStep.outcome != 'skipped'
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: r8analysis_gh_workspace2
+          path: /github/workspace/r8analysis
+          retention-days: 1
+
       - name: Revert `ProjectSettings/ProjectSettings.asset`
         timeout-minutes: 1
         continue-on-error: true
@@ -726,3 +772,177 @@ jobs:
           DEST="ProjectSettings/ProjectSettings.asset"
           rm "$DEST"
           mv "$DEST.bak" "$DEST"
+
+      - name: Find r8analysis
+        timeout-minutes: 20
+        if: always()
+        run: find /github/workspace \( -iname "*r8analysis*" \) 2>/dev/null
+
+      - name: Find r8analysis
+        timeout-minutes: 20
+        if: always()
+        run: find /tmp \( -iname "*r8analysis*" \) 2>/dev/null
+
+      - name: Find r8analysis
+        timeout-minutes: 20
+        if: always()
+        run: find /root \( -iname "*r8analysis*" \) 2>/dev/null
+
+      - name: Find r8analysis
+        timeout-minutes: 20
+        if: always()
+        run: find / \( -path /proc -o -path /sys \) -prune -o \( -iname "*r8analysis*" \) -print 2>/dev/null
+
+      - name: Find soong
+        timeout-minutes: 20
+        if: always()
+        run: find / \( -path /proc -o -path /sys \) -prune -o \( -iname "*soong*" \) -print 2>/dev/null
+
+      - name: Patch Gradle project for R8 Configuration Analyzer
+        if: always() && steps.buildStep.outcome == 'success'
+        run: |
+          GRADLE_PROJECT="Library/Bee/Android/Prj/IL2CPP/Gradle"
+          source .github/scripts/helpers.sh
+          #check_folder ${{ github.workspace }}/r8analysis
+          #
+          # Обновляем Gradle до 9.3.0
+          check_folder $GRADLE_PROJECT
+          check_folder "$GRADLE_PROJECT/gradle/"
+          check_folder "$GRADLE_PROJECT/gradle/wrapper/"
+          check_file "$GRADLE_PROJECT/gradle/wrapper/gradle-wrapper.properties"
+          sed -i 's|distributionUrl=.*|distributionUrl=https\\://services.gradle.org/distributions/gradle-9.3.0-bin.zip|' \
+            "$GRADLE_PROJECT/gradle/wrapper/gradle-wrapper.properties"
+          check_file "$GRADLE_PROJECT/gradle/wrapper/gradle-wrapper.properties"
+          #
+          # Обновляем AGP до 9.3.0
+          check_file "$GRADLE_PROJECT/build.gradle"
+          sed -i "s|id 'com.android.application' version '9.0.1'|id 'com.android.application' version '9.3.0'|" \
+            "$GRADLE_PROJECT/build.gradle"
+          check_file "$GRADLE_PROJECT/build.gradle"
+          sed -i "s|id 'com.android.library' version '9.0.1'|id 'com.android.library' version '9.3.0'|" \
+            "$GRADLE_PROJECT/build.gradle"
+          check_file "$GRADLE_PROJECT/build.gradle"
+          #
+          echo "=== gradle-wrapper.properties ==="
+          cat "$GRADLE_PROJECT/gradle/wrapper/gradle-wrapper.properties"
+          echo "=== build.gradle ==="
+          cat "$GRADLE_PROJECT/build.gradle"
+          #
+          check_folder ${{ github.workspace }}/r8analysis
+          rm -rf ${{ github.workspace }}/r8analysis
+          check_folder ${{ github.workspace }}/r8analysis
+          mkdir -p ${{ github.workspace }}/r8analysis
+          check_folder ${{ github.workspace }}/r8analysis
+
+      - name: Run R8 Configuration Analyzer
+        if: always() && steps.buildStep.outcome == 'success'
+        run: |
+          cd Library/Bee/Android/Prj/IL2CPP/Gradle
+          chmod +x gradlew
+          ./gradlew :launcher:analyzeReleaseR8Config \
+            --no-daemon \
+            -Dcom.android.tools.r8.dumpkeepradiushtmltodirectory=${{ github.workspace }}/r8analysis
+
+      - name: Find R8 output
+        if: always()
+        run: |
+          find ${{ github.workspace }}/r8analysis -type f 2>/dev/null || echo "r8analysis пуст"
+          find Library/Bee/Android/Prj/IL2CPP/Gradle -name "*keepradius*" -o -name "*.pb" 2>/dev/null || true
+
+      - name: Upload R8 Configuration Analysis
+        if: always() && steps.buildStep.outcome == 'success'
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: r8-configuration-analysis
+          path: '${{ github.workspace }}/r8analysis'
+          retention-days: 1
+
+      - name: Check /github/workspace/r8analysis
+        timeout-minutes: 1
+        if: always() && steps.buildStep.outcome != 'skipped'
+        run: |
+          source .github/scripts/helpers.sh
+          check_folder ${{ github.workspace }}/r8analysis
+          check_folder /tmp/r8analysis
+
+      - name: Upload pb files as artifact
+        timeout-minutes: 1
+        if: always() && steps.buildStep.outcome != 'skipped'
+        run: |
+          find / \( -path /proc -o -path /sys \) -prune -o -type f \( -iname "*.pb" \) | zip pb-files2.zip -@
+
+      - name: Upload pb
+        timeout-minutes: 1
+        if: always() && steps.buildStep.outcome != 'skipped'
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: pb-files2
+          path: pb-files2.zip
+          retention-days: 1
+
+      - name: Upload R8 Configuration Analyzer Report
+        timeout-minutes: 1
+        uses: actions/upload-artifact@v7.0.1
+        if: always()
+        with:
+          name: r8-tmp-r8analysis_2
+          path: '/tmp/r8analysis'
+          retention-days: 1
+
+      - name: Upload r8analysis files as artifact
+        timeout-minutes: 1
+        if: always() && steps.buildStep.outcome != 'skipped'
+        run: |
+          find . \( -iname "*r8analysis*" \) | zip r8analysis2.zip -@
+
+      - name: Upload artifact
+        timeout-minutes: 1
+        if: always() && steps.buildStep.outcome != 'skipped'
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: r8analysis2
+          path: r8analysis2.zip
+          retention-days: 1
+
+      - name: Upload r8analysis
+        timeout-minutes: 1
+        if: always() && steps.buildStep.outcome != 'skipped'
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: r8analysis_gh_workspace_3
+          path: '${{ github.workspace }}/r8analysis'
+          retention-days: 1
+
+      - name: Upload r8analysis2
+        timeout-minutes: 1
+        if: always() && steps.buildStep.outcome != 'skipped'
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: r8analysis_gh_workspace_4
+          path: /github/workspace/r8analysis
+          retention-days: 1
+
+      - name: Find r8analysis
+        timeout-minutes: 20
+        if: always()
+        run: find /github/workspace \( -iname "*r8analysis*" \) 2>/dev/null
+
+      - name: Find r8analysis
+        timeout-minutes: 20
+        if: always()
+        run: find /tmp \( -iname "*r8analysis*" \) 2>/dev/null
+
+      - name: Find r8analysis
+        timeout-minutes: 20
+        if: always()
+        run: find /root \( -iname "*r8analysis*" \) 2>/dev/null
+
+      - name: Find r8analysis
+        timeout-minutes: 20
+        if: always()
+        run: find / \( -path /proc -o -path /sys \) -prune -o \( -iname "*r8analysis*" \) -print 2>/dev/null
+
+      - name: Find soong
+        timeout-minutes: 20
+        if: always()
+        run: find / \( -path /proc -o -path /sys \) -prune -o \( -iname "*soong*" \) -print 2>/dev/null
