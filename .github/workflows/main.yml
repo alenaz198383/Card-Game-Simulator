@@ -832,6 +832,13 @@ jobs:
         run: |
           source .github/scripts/helpers.sh
           #
+          echo "====================================================="
+          grep -n  "ndkVersion" "$GRADLE_PROJECT/shared/common.gradle" || true
+          grep -n  "ndkPath"    "$GRADLE_PROJECT/shared/common.gradle" || true
+          grep -rn "ndkVersion" "$GRADLE_PROJECT" 2>/dev/null || true  # без --include, все файлы
+          grep -rn "ndkPath"    "$GRADLE_PROJECT" 2>/dev/null || true  # без --include, все файлы
+          echo "====================================================="
+          #
           check_folder "${{ env.GRADLE_PROJECT }}/"
           #
           # Меняем владельца на runner
@@ -849,7 +856,9 @@ jobs:
           echo "=== $ANDROID_SDK_ROOT/ndk/* 2>/dev/null | sort -V ==="
           ls -d     $ANDROID_SDK_ROOT/ndk/* 2>/dev/null | sort -V
           echo "====================================================="
-          NDK_PATH=$(ls -d $ANDROID_SDK_ROOT/ndk/* 2>/dev/null | sort -V | tail -1)
+          #NDK_PATH=$(ls -d $ANDROID_SDK_ROOT/ndk/* 2>/dev/null | sort -V | tail -1)
+          # Используем конкретно 28.2.x:
+          NDK_PATH="/usr/local/lib/android/sdk/ndk/28.2.13676358"
           echo "Found NDK: $NDK_PATH"
           #
           # Патчим ndkPath во ВСЕХ build.gradle
@@ -886,6 +895,12 @@ jobs:
           echo "====================================================="
           echo "=== apply from lines ===" 
           grep -n "apply from" "$GRADLE_PROJECT/launcher/build.gradle" || true
+          echo "====================================================="
+          #
+          grep -n  "ndkVersion" "$GRADLE_PROJECT/shared/common.gradle" || true
+          grep -n  "ndkPath"    "$GRADLE_PROJECT/shared/common.gradle" || true
+          grep -rn "ndkVersion" "$GRADLE_PROJECT" 2>/dev/null || true  # без --include, все файлы
+          grep -rn "ndkPath"    "$GRADLE_PROJECT" 2>/dev/null || true  # без --include, все файлы
           echo "====================================================="
 
       - name: Run R8 Configuration Analyzer
