@@ -877,6 +877,9 @@ jobs:
           echo "=== ndkPath line ==="
           grep -rn "ndkPath" "${{ env.GRADLE_PROJECT }}" --include="*.gradle"
           echo "====================================================="
+          echo "=== ndkVersion line ==="
+          grep -rn "ndkVersion" "${{ env.GRADLE_PROJECT }}" --include="*.gradle"
+          echo "====================================================="
 
       - name: Run R8 Configuration Analyzer
         if: always() && steps.buildStep.outcome != 'skipped'
