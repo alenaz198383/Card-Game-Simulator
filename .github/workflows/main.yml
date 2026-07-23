@@ -774,42 +774,6 @@ jobs:
       #  if: always()
       #  run: find / \( -path /proc -o -path /sys \) -prune -o \( -iname "*soong*" \) -print 2>/dev/null
 
-      - name: Patch Gradle project for R8 Configuration Analyzer
-        if: always() && steps.buildStep.outcome == 'success'
-        run: |
-          GRADLE_PROJECT="Library/Bee/Android/Prj/IL2CPP/Gradle"
-          source .github/scripts/helpers.sh
-          #check_folder ${{ github.workspace }}/r8analysis
-          #
-          # Обновляем Gradle до 9.5.1
-          check_folder $GRADLE_PROJECT
-          check_folder "$GRADLE_PROJECT/gradle/"
-          check_folder "$GRADLE_PROJECT/gradle/wrapper/"
-          cat_file "$GRADLE_PROJECT/gradle/wrapper/gradle-wrapper.properties"
-          sed -i 's|distributionUrl=.*|distributionUrl=https\\://services.gradle.org/distributions/gradle-9.5.1-bin.zip|' \
-            "$GRADLE_PROJECT/gradle/wrapper/gradle-wrapper.properties"
-          cat_file "$GRADLE_PROJECT/gradle/wrapper/gradle-wrapper.properties"
-          #
-          # Обновляем AGP до 9.3.0
-          cat_file "$GRADLE_PROJECT/build.gradle"
-          sed -i "s|id 'com.android.application' version '9.0.1'|id 'com.android.application' version '9.3.0'|" \
-            "$GRADLE_PROJECT/build.gradle"
-          cat_file "$GRADLE_PROJECT/build.gradle"
-          sed -i "s|id 'com.android.library' version '9.0.1'|id 'com.android.library' version '9.3.0'|" \
-            "$GRADLE_PROJECT/build.gradle"
-          cat_file "$GRADLE_PROJECT/build.gradle"
-          #
-          echo "=== gradle-wrapper.properties ==="
-          cat "$GRADLE_PROJECT/gradle/wrapper/gradle-wrapper.properties"
-          echo "=== build.gradle ==="
-          cat "$GRADLE_PROJECT/build.gradle"
-          #
-          check_folder ${{ github.workspace }}/r8analysis
-          rm -rf ${{ github.workspace }}/r8analysis
-          check_folder ${{ github.workspace }}/r8analysis
-          mkdir -p ${{ github.workspace }}/r8analysis
-          check_folder ${{ github.workspace }}/r8analysis
-
       #- name: Find Gradle
       #  timeout-minutes: 10
       #  continue-on-error: true
@@ -826,23 +790,58 @@ jobs:
           source .github/scripts/helpers.sh
           check_folder /tmp/gradle-9.5.1/bin/
           check_file   /tmp/gradle-9.5.1/bin/gradle
-          echo "GRADLE_BIN=/tmp/gradle-9.5.1/bin/gradle" >> $GITHUB_ENV
+          echo "GRADLE_BIN=/tmp/gradle-9.5.1/bin/gradle"              >> $GITHUB_ENV
+          echo "GRADLE_PROJECT=Library/Bee/Android/Prj/IL2CPP/Gradle" >> $GITHUB_ENV
+
+      - name: Patch Gradle project for R8 Configuration Analyzer
+        if: always() && steps.buildStep.outcome == 'success'
+        run: |
+          source .github/scripts/helpers.sh
+          #check_folder ${{ github.workspace }}/r8analysis
+          #
+          # Обновляем Gradle до 9.5.1
+          check_folder  ${{ env.GRADLE_PROJECT }}
+          check_folder "${{ env.GRADLE_PROJECT }}/gradle/"
+          check_folder "${{ env.GRADLE_PROJECT }}/gradle/wrapper/"
+          cat_file     "${{ env.GRADLE_PROJECT }}/gradle/wrapper/gradle-wrapper.properties"
+          sed -i 's|distributionUrl=.*|distributionUrl=https\\://services.gradle.org/distributions/gradle-9.5.1-bin.zip|' \
+            "${{ env.GRADLE_PROJECT }}/gradle/wrapper/gradle-wrapper.properties"
+          cat_file "${{ env.GRADLE_PROJECT }}/gradle/wrapper/gradle-wrapper.properties"
+          #
+          # Обновляем AGP до 9.3.0
+          cat_file "${{ env.GRADLE_PROJECT }}/build.gradle"
+          sed -i "s|id 'com.android.application' version '9.0.1'|id 'com.android.application' version '9.3.0'|" \
+            "${{ env.GRADLE_PROJECT }}/build.gradle"
+          cat_file "${{ env.GRADLE_PROJECT }}/build.gradle"
+          sed -i "s|id 'com.android.library' version '9.0.1'|id 'com.android.library' version '9.3.0'|" \
+            "${{ env.GRADLE_PROJECT }}/build.gradle"
+          cat_file "${{ env.GRADLE_PROJECT }}/build.gradle"
+          #
+          echo "=== gradle-wrapper.properties ==="
+          cat "${{ env.GRADLE_PROJECT }}/gradle/wrapper/gradle-wrapper.properties"
+          echo "=== build.gradle ==="
+          cat "${{ env.GRADLE_PROJECT }}/build.gradle"
+          #
+          check_folder ${{ github.workspace }}/r8analysis
+          rm -rf ${{ github.workspace }}/r8analysis
+          check_folder ${{ github.workspace }}/r8analysis
+          mkdir -p ${{ github.workspace }}/r8analysis
+          check_folder ${{ github.workspace }}/r8analysis
 
       - name: Fix SDK/NDK paths for R8 analyzer
         if: always() && steps.buildStep.outcome != 'skipped'
         run: |
-          GRADLE_PROJECT="Library/Bee/Android/Prj/IL2CPP/Gradle"
           source .github/scripts/helpers.sh
           #
-          check_folder "$GRADLE_PROJECT/"
+          check_folder "${{ env.GRADLE_PROJECT }}/"
           #
           # Меняем владельца на runner
-          sudo chown -R runner:runner "$GRADLE_PROJECT"
+          sudo chown -R runner:runner "${{ env.GRADLE_PROJECT }}"
           #
           # Исправляем SDK path
-          cat_file "$GRADLE_PROJECT/local.properties"
-          echo "sdk.dir=$ANDROID_SDK_ROOT" > "$GRADLE_PROJECT/local.properties"
-          cat_file "$GRADLE_PROJECT/local.properties"
+          cat_file "${{ env.GRADLE_PROJECT }}/local.properties"
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > "${{ env.GRADLE_PROJECT }}/local.properties"
+          cat_file "${{ env.GRADLE_PROJECT }}/local.properties"
           #
           check_folder $ANDROID_SDK_ROOT/ndk/
           # Находим доступный NDK на раннере
@@ -854,35 +853,44 @@ jobs:
           NDK_PATH=$(ls -d $ANDROID_SDK_ROOT/ndk/* 2>/dev/null | sort -V | tail -1)
           echo "Found NDK: $NDK_PATH"
           #
-          # Патчим ndkPath в launcher/build.gradle
-          check_file "$GRADLE_PROJECT/launcher/build.gradle"
-          sed -i "s|ndkPath \"[^\"]*\"|ndkPath \"$NDK_PATH\"|" "$GRADLE_PROJECT/launcher/build.gradle"
-          check_file "$GRADLE_PROJECT/launcher/build.gradle"
+          # Патчим ndkPath во ВСЕХ build.gradle
+          find "${{ env.GRADLE_PROJECT }}" -name "build.gradle" | while read f; do
+            echo "Patching $f..."
+            cat_file $f
+            sed -i "s|ndkPath \"[^\"]*\"|ndkPath \"$NDK_PATH\"|g" "$f"
+            echo "Patched $f."
+            cat_file $f
+          done
           #
           # Убираем ndkVersion - пусть берёт из найденного NDK
-          check_file "$GRADLE_PROJECT/launcher/build.gradle"
-          sed -i '/ndkVersion/d' "$GRADLE_PROJECT/launcher/build.gradle"
-          check_file "$GRADLE_PROJECT/launcher/build.gradle"
+          cat_file "${{ env.GRADLE_PROJECT }}/launcher/build.gradle"
+          find "${{ env.GRADLE_PROJECT }}" -name "build.gradle" | xargs sed -i '/ndkVersion/d'
+          cat_file "${{ env.GRADLE_PROJECT }}/launcher/build.gradle"
           #
-          #echo "=== local.properties ==="
-          #cat "$GRADLE_PROJECT/local.properties"
+          echo "=== local.properties ==="
+          cat_file "${{ env.GRADLE_PROJECT }}/local.properties"
+          echo "=== build.gradle ==="
+          cat_file "${{ env.GRADLE_PROJECT }}/launcher/build.gradle"
           echo "=== ndkPath line ==="
-          grep -n "ndkPath" "$GRADLE_PROJECT/launcher/build.gradle"
+          grep -rn "ndkPath" "${{ env.GRADLE_PROJECT }}" --include="*.gradle"
           echo "====================================================="
 
       - name: Run R8 Configuration Analyzer
         if: always() && steps.buildStep.outcome != 'skipped'
         run: |
-          cd Library/Bee/Android/Prj/IL2CPP/Gradle
-          ${{ env.GRADLE_BIN }} :launcher:analyzeReleaseR8Config \
-            --no-daemon \
-            -Dcom.android.tools.r8.dumpkeepradiushtmltodirectory=${{ github.workspace }}/r8analysis
+          GRADLE_OPTS="-Dcom.android.tools.r8.dumpkeepradiushtmltodirectory=${{ github.workspace }}/r8analysis"
+          echo "=== GRADLE_OPTS ==="
+          echo "$GRADLE_OPTS"
+          echo "====================================================="
+          #
+          cd ${{ env.GRADLE_PROJECT }}
+          ${{ env.GRADLE_BIN }} :launcher:analyzeReleaseR8Config --no-daemon
 
       - name: Find R8 output
         if: always()
         run: |
           find ${{ github.workspace }}/r8analysis -type f 2>/dev/null || echo "r8analysis пуст"
-          find Library/Bee/Android/Prj/IL2CPP/Gradle -name "*keepradius*" -o -name "*.pb" 2>/dev/null || true
+          find ${{ env.GRADLE_PROJECT }} -name "*keepradius*" -o -name "*.pb" 2>/dev/null || true
 
       - name: Upload R8 Configuration Analysis
         if: always() && steps.buildStep.outcome == 'success'
