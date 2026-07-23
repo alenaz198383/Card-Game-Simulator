@@ -616,7 +616,7 @@ jobs:
           retention-days: 1
 
       - name: Upload pb files as artifact
-        timeout-minutes: 1
+        timeout-minutes: 10
         if: always() && steps.buildStep.outcome != 'skipped'
         run: |
           find / \( -path /proc -o -path /sys \) -prune -o -type f \( -iname "*.pb" \) | zip pb-files.zip -@
@@ -835,6 +835,8 @@ jobs:
           check_folder ${{ github.workspace }}/r8analysis
 
       - name: Find Gradle
+        timeout-minutes: 10
+        continue-on-error: true
         if: always() && steps.buildStep.outcome != 'skipped'
         run: |
           find / -iname "gradlew" 2>/dev/null
