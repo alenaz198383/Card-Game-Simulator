@@ -775,12 +775,12 @@ jobs:
           source .github/scripts/helpers.sh
           #check_folder ${{ github.workspace }}/r8analysis
           #
-          # Обновляем Gradle до 9.5.0
+          # Обновляем Gradle до 9.5.1
           check_folder $GRADLE_PROJECT
           check_folder "$GRADLE_PROJECT/gradle/"
           check_folder "$GRADLE_PROJECT/gradle/wrapper/"
           cat_file "$GRADLE_PROJECT/gradle/wrapper/gradle-wrapper.properties"
-          sed -i 's|distributionUrl=.*|distributionUrl=https\\://services.gradle.org/distributions/gradle-9.5.0-bin.zip|' \
+          sed -i 's|distributionUrl=.*|distributionUrl=https\\://services.gradle.org/distributions/gradle-9.5.1-bin.zip|' \
             "$GRADLE_PROJECT/gradle/wrapper/gradle-wrapper.properties"
           cat_file "$GRADLE_PROJECT/gradle/wrapper/gradle-wrapper.properties"
           #
@@ -804,23 +804,60 @@ jobs:
           mkdir -p ${{ github.workspace }}/r8analysis
           check_folder ${{ github.workspace }}/r8analysis
 
-      - name: Find Gradle
-        timeout-minutes: 10
-        continue-on-error: true
-        if: always() && steps.buildStep.outcome != 'skipped'
-        run: |
-          find / -iname "gradlew" 2>/dev/null
-          find / -iname "build.gradle" 2>/dev/null
+      #- name: Find Gradle
+      #  timeout-minutes: 10
+      #  continue-on-error: true
+      #  if: always() && steps.buildStep.outcome != 'skipped'
+      #  run: |
+      #    find / -iname "gradlew" 2>/dev/null
+      #    find / -iname "build.gradle" 2>/dev/null
 
-      - name: Setup Gradle 9.5.0
+      - name: Setup Gradle 9.5.1
         if: always() && steps.buildStep.outcome != 'skipped'
         run: |
-          wget -q https://services.gradle.org/distributions/gradle-9.5.0-bin.zip -O /tmp/gradle-9.5.0-bin.zip
-          unzip -q /tmp/gradle-9.5.0-bin.zip -d /tmp/
+          wget -q https://services.gradle.org/distributions/gradle-9.5.1-bin.zip -O /tmp/gradle-9.5.1-bin.zip
+          unzip -q /tmp/gradle-9.5.1-bin.zip -d /tmp/
           source .github/scripts/helpers.sh
-          check_folder /tmp/gradle-9.5.0/bin/
-          check_file   /tmp/gradle-9.5.0/bin/gradle
-          echo "GRADLE_BIN=/tmp/gradle-9.5.0/bin/gradle" >> $GITHUB_ENV
+          check_folder /tmp/gradle-9.5.1/bin/
+          check_file   /tmp/gradle-9.5.1/bin/gradle
+          echo "GRADLE_BIN=/tmp/gradle-9.5.1/bin/gradle" >> $GITHUB_ENV
+
+      - name: Fix SDK/NDK paths for R8 analyzer
+        if: always() && steps.buildStep.outcome != 'skipped'
+        run: |
+          GRADLE_PROJECT="Library/Bee/Android/Prj/IL2CPP/Gradle"
+          source .github/scripts/helpers.sh
+          #
+          # Исправляем SDK path
+          check_file "$GRADLE_PROJECT/local.properties"
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > "$GRADLE_PROJECT/local.properties"
+          check_file "$GRADLE_PROJECT/local.properties"
+          #
+          check_folder $ANDROID_SDK_ROOT/ndk/
+          # Находим доступный NDK на раннере
+          echo "=== $ANDROID_SDK_ROOT/ndk/* ==="
+          ls -d     $ANDROID_SDK_ROOT/ndk/* 2>/dev/null
+          echo "=== $ANDROID_SDK_ROOT/ndk/* 2>/dev/null | sort -V ==="
+          ls -d     $ANDROID_SDK_ROOT/ndk/* 2>/dev/null | sort -V
+          echo "====================================================="
+          NDK_PATH=$(ls -d $ANDROID_SDK_ROOT/ndk/* 2>/dev/null | sort -V | tail -1)
+          echo "Found NDK: $NDK_PATH"
+          #
+          # Патчим ndkPath в launcher/build.gradle
+          check_file "$GRADLE_PROJECT/launcher/build.gradle"
+          sed -i "s|ndkPath \"[^\"]*\"|ndkPath \"$NDK_PATH\"|" "$GRADLE_PROJECT/launcher/build.gradle"
+          check_file "$GRADLE_PROJECT/launcher/build.gradle"
+          #
+          # Убираем ndkVersion - пусть берёт из найденного NDK
+          check_file "$GRADLE_PROJECT/launcher/build.gradle"
+          sed -i '/ndkVersion/d' "$GRADLE_PROJECT/launcher/build.gradle"
+          check_file "$GRADLE_PROJECT/launcher/build.gradle"
+          #
+          echo "=== local.properties ==="
+          cat "$GRADLE_PROJECT/local.properties"
+          echo "=== ndkPath line ==="
+          grep -n "ndkPath" "$GRADLE_PROJECT/launcher/build.gradle"
+          echo "====================================================="
 
       - name: Run R8 Configuration Analyzer
         if: always() && steps.buildStep.outcome != 'skipped'
