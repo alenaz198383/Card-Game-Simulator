@@ -845,13 +845,16 @@ jobs:
         run: |
           wget -q https://services.gradle.org/distributions/gradle-9.3.0-bin.zip -O /tmp/gradle-9.3.0-bin.zip
           unzip -q /tmp/gradle-9.3.0-bin.zip -d /tmp/
+          source .github/scripts/helpers.sh
+          check_folder /tmp/gradle-9.3.0/bin/gradle
+          check_file /tmp/gradle-9.3.0/bin/gradle/gradlew
+          chmod +x /tmp/gradle-9.3.0/bin/gradle/gradlew
           echo "GRADLE_BIN=/tmp/gradle-9.3.0/bin/gradle" >> $GITHUB_ENV
 
       - name: Run R8 Configuration Analyzer
         if: always() && steps.buildStep.outcome != 'skipped'
         run: |
           cd Library/Bee/Android/Prj/IL2CPP/Gradle
-          chmod +x gradlew
           ${{ env.GRADLE_BIN }} :launcher:analyzeReleaseR8Config \
             --no-daemon \
             -Dcom.android.tools.r8.dumpkeepradiushtmltodirectory=${{ github.workspace }}/r8analysis
