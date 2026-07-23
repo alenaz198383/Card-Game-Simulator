@@ -875,10 +875,10 @@ jobs:
           echo "=== build.gradle ==="
           cat_file "${{ env.GRADLE_PROJECT }}/launcher/build.gradle"
           echo "=== ndkPath line ==="
-          grep -rn "ndkPath" "${{ env.GRADLE_PROJECT }}" --include="*.gradle"
+          grep -rn "ndkPath" "${{ env.GRADLE_PROJECT }}" --include="*.gradle" || true
           echo "====================================================="
           echo "=== ndkVersion line ==="
-          grep -rn "ndkVersion" "${{ env.GRADLE_PROJECT }}" --include="*.gradle"
+          grep -rn "ndkVersion" "${{ env.GRADLE_PROJECT }}" --include="*.gradle" || true
           echo "====================================================="
 
       - name: Run R8 Configuration Analyzer
@@ -889,10 +889,10 @@ jobs:
           echo "$GRADLE_OPTS"
           echo "====================================================="
           echo "=== ndkPath line ==="
-          grep -rn "ndkPath" "${{ env.GRADLE_PROJECT }}" --include="*.gradle"
+          grep -rn "ndkPath" "${{ env.GRADLE_PROJECT }}" --include="*.gradle" || true
           echo "====================================================="
           echo "=== ndkVersion line ==="
-          grep -rn "ndkVersion" "${{ env.GRADLE_PROJECT }}" --include="*.gradle"
+          grep -rn "ndkVersion" "${{ env.GRADLE_PROJECT }}" --include="*.gradle" || true
           echo "====================================================="
           #
           cd ${{ env.GRADLE_PROJECT }}
