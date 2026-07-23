@@ -232,6 +232,10 @@ jobs:
           cd ./Card-Game-Simulator/
           mkdir -p Assets/Plugins/Sentry/
           echo "$SENTRY_CLI_OPTIONS" > Assets/Plugins/Sentry/SentryCliOptions.asset
+          #
+          mkdir -p ${{ github.workspace }}/r8analysis
+          mkdir -p ./tmp/r8analysis
+          echo "GRADLE_OPTS=-Dcom.android.tools.r8.dumpkeepradiushtmltodirectory=${{ github.workspace }}/r8analysis" >> $GITHUB_ENV
 
       #- name: Restore Library cache from R2
       # timeout-minutes: 1
@@ -324,6 +328,7 @@ jobs:
         run: |
           echo "Final using VERSION: ${{ env.VERSION }}"
           echo "Final using ANDROID_VERSION_CODE: ${{ env.ANDROID_VERSION_CODE }}"
+          echo "Final using GRADLE_OPTS: ${{ env.GRADLE_OPTS }}"
 
       - name: 📈 Install sentry-cli
         timeout-minutes: 1
@@ -702,6 +707,15 @@ jobs:
         with:
           name: r8analysis
           path: r8analysis.zip
+          retention-days: 1
+
+      - name: Upload r8analysis
+        timeout-minutes: 1
+        if: always() && steps.buildStep.outcome != 'skipped'
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: r8analysis_gh_workspace
+          path: '${{ github.workspace }}/r8analysis'
           retention-days: 1
 
       - name: Revert `ProjectSettings/ProjectSettings.asset`
