@@ -196,6 +196,15 @@ jobs:
       buildVersion: ${{ steps.buildStep.outputs.buildVersion }}
     timeout-minutes: 90
     steps:
+      - name: Start timestamp
+        continue-on-error: true
+        timeout-minutes: 1
+        if: ${{ always() }}
+        run: |
+          date -u
+          df -h
+          free -h || true
+
       #- name: Free Disk Space
       #  timeout-minutes: 6
       #  uses: jlumbroso/free-disk-space@v1.3.1
@@ -954,3 +963,12 @@ jobs:
         timeout-minutes: 20
         if: always()
         run: find / \( -path /proc -o -path /sys \) -prune -o \( -iname "*soong*" \) -print 2>/dev/null
+
+      - name: Final timestamp
+        continue-on-error: true
+        timeout-minutes: 1
+        if: ${{ always() }}
+        run: |
+          date -u
+          df -h
+          free -h || true
