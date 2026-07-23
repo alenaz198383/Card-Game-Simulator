@@ -395,149 +395,149 @@ jobs:
       #    name: cgs-Android-${{ matrix.exportMode }}-${{ env.ANDROID_VERSION_CODE }}
       #    retention-days: 1
 
-      - name: Upload Build to R2
-        timeout-minutes: 1
-        continue-on-error: true
-        if: steps.buildStep.outcome != 'skipped'
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: us-east-1
-          R2_BUCKET: ${{ secrets.R2_BUCKET_NAME }}
-          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
-        run: |
-          if [ -d "build/Android" ]; then
-            DIR="artifacts/build/Android"
-            SRC="${DIR}/Android.${{ matrix.exportMode }}"
-            DEST="${DIR}/${{ env.ANDROID_VERSION_CODE }}.${{ matrix.exportMode }}"
-            mkdir -p artifacts
-            cp -r "build/" "artifacts/"
-            mv "$SRC" "$DEST"
-            zst_file_name="${{ env.ANDROID_VERSION_CODE }}.${{ matrix.exportMode }}.tar.zst"
-            tar -I 'zstd -9' -cf "artifacts/$zst_file_name" "$DIR/"
-            aws s3 cp "artifacts/$zst_file_name" "s3://$R2_BUCKET/$zst_file_name" --endpoint-url $R2_ENDPOINT --quiet
-            rm -rf artifacts/
-          else
-            echo "'build/Android' folder not found, skipping '${{ matrix.exportMode }}' save."
-          fi
-
-      - name: 📈 Upload AAB to Sentry for Size Tracking
-        timeout-minutes: 1
-        continue-on-error: true
-        if: steps.buildStep.outcome == 'success' && matrix.exportMode == 'aab'
-        env:
-          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
-          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
-          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
-        run: |
-          AAB_FILE=$(find build -name "*.aab" | head -n 1)
-          if [ -n "$AAB_FILE" ]; then
-            echo "All '*.aab' files found:"
-            find build -name "*.aab"
-            echo "Using: $AAB_FILE"
-            RELEASE_NAME="game2048@${{ env.VERSION }}"
-            #
-            echo ""; echo "----- Creating Sentry release ($RELEASE_NAME) executed... -----"
-            sentry-cli releases new "$RELEASE_NAME" \
-              --org "$SENTRY_ORG" \
-              --project "$SENTRY_PROJECT" \
-              #--finalize \
-              ${{ inputs.sentry_debug == true && '--log-level debug' || '' }}
-            echo "----- Creating Sentry release ($RELEASE_NAME) completed -----"; echo ""
-            #
-            echo ""; echo "----- Uploading AAB to Sentry executed... -----"
-            sentry-cli build upload "$AAB_FILE" \
-              --org "$SENTRY_ORG" \
-              --project "$SENTRY_PROJECT" \
-              --build-configuration Release \
-              --head-sha "${{ github.sha }}" \
-              --head-repo-name "gal20040/2048" \
-              --vcs-provider github \
-              --force-git-metadata \
-              ${{ inputs.sentry_debug == true && '--log-level debug' || '' }}
-            echo "----- Uploading AAB to Sentry completed -----"; echo ""
-          else
-            echo "AAB file not found."
-            exit 1
-          fi
-
-      - name: 📈 Upload '*mapping*' to Sentry
-        timeout-minutes: 1
-        continue-on-error: true
-        if: steps.buildStep.outcome == 'success' && matrix.exportMode == 'aab'
-        env:
-          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
-          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
-          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
-        run: |
-          AAB_FILE=$(find build -name "*.aab" | head -n 1)
-          if [ -n "$AAB_FILE" ]; then
-            echo "All '*mapping*' files found:"
-            find build -name "*mapping*"
-            # Upload R8/ProGuard mapping if it exists
-            MAPPING_FILE=$(find build -name "*mapping*" | head -n 1)
-            if [ -n "$MAPPING_FILE" ]; then
-              echo ""; echo "----- Uploading mapping to Sentry executed... -----"
-              find build -name "*mapping*" | xargs sentry-cli upload-proguard \
-                --org "$SENTRY_ORG" \
-                --project "$SENTRY_PROJECT" \
-                ${{ inputs.sentry_debug == true && '--log-level debug' || '' }}
-              echo "----- Uploading mapping to Sentry completed -----"; echo ""
-            else
-              echo "No '*mapping*' found (minification may be disabled)"
-            fi
-          else
-            echo "AAB file not found."
-            exit 1
-          fi
-
-      - name: 📈 Upload symbol's files to Sentry
-        timeout-minutes: 1
-        continue-on-error: true
-        if: steps.buildStep.outcome == 'success' && matrix.exportMode == 'aab'
-        env:
-          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
-          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
-          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
-        run: |
-          AAB_FILE=$(find build -name "*.aab" | head -n 1)
-          if [ -n "$AAB_FILE" ]; then
-            echo ""; echo "----- Uploading symbol's files to Sentry executed... -----"
-            sentry-cli debug-files upload \
-              --org "$SENTRY_ORG" \
-              --project "$SENTRY_PROJECT" \
-              --il2cpp-mapping \
-              build/ \
-              ${{ inputs.sentry_debug == true && '--log-level debug' || '' }}
-            echo "----- Uploading symbol's files to Sentry completed -----"; echo ""
-          else
-            echo "AAB file not found."
-            exit 1
-          fi
-
-      - name: 📈 Upload symbol's files to Sentry
-        timeout-minutes: 2
-        continue-on-error: true
-        if: steps.buildStep.outcome == 'success' && matrix.exportMode == 'aab'
-        env:
-          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
-          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
-          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
-        run: |
-          AAB_FILE=$(find build -name "*.aab" | head -n 1)
-          if [ -n "$AAB_FILE" ]; then
-            echo ""; echo "----- Uploading symbol's files to Sentry executed... -----"
-            sentry-cli debug-files upload \
-              --org "$SENTRY_ORG" \
-              --project "$SENTRY_PROJECT" \
-              --il2cpp-mapping \
-              ./ \
-              ${{ inputs.sentry_debug == true && '--log-level debug' || '' }}
-            echo "----- Uploading symbol's files to Sentry completed -----"; echo ""
-          else
-            echo "AAB file not found."
-            exit 1
-          fi
+      #- name: Upload Build to R2
+      #  timeout-minutes: 1
+      #  continue-on-error: true
+      #  if: steps.buildStep.outcome != 'skipped'
+      #  env:
+      #    AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      #    AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      #    AWS_DEFAULT_REGION: us-east-1
+      #    R2_BUCKET: ${{ secrets.R2_BUCKET_NAME }}
+      #    R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+      #  run: |
+      #    if [ -d "build/Android" ]; then
+      #      DIR="artifacts/build/Android"
+      #      SRC="${DIR}/Android.${{ matrix.exportMode }}"
+      #      DEST="${DIR}/${{ env.ANDROID_VERSION_CODE }}.${{ matrix.exportMode }}"
+      #      mkdir -p artifacts
+      #      cp -r "build/" "artifacts/"
+      #      mv "$SRC" "$DEST"
+      #      zst_file_name="${{ env.ANDROID_VERSION_CODE }}.${{ matrix.exportMode }}.tar.zst"
+      #      tar -I 'zstd -9' -cf "artifacts/$zst_file_name" "$DIR/"
+      #      aws s3 cp "artifacts/$zst_file_name" "s3://$R2_BUCKET/$zst_file_name" --endpoint-url $R2_ENDPOINT --quiet
+      #      rm -rf artifacts/
+      #    else
+      #      echo "'build/Android' folder not found, skipping '${{ matrix.exportMode }}' save."
+      #    fi
+      #
+      #- name: 📈 Upload AAB to Sentry for Size Tracking
+      #  timeout-minutes: 1
+      #  continue-on-error: true
+      #  if: steps.buildStep.outcome == 'success' && matrix.exportMode == 'aab'
+      #  env:
+      #    SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+      #    SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+      #    SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+      #  run: |
+      #    AAB_FILE=$(find build -name "*.aab" | head -n 1)
+      #    if [ -n "$AAB_FILE" ]; then
+      #      echo "All '*.aab' files found:"
+      #      find build -name "*.aab"
+      #      echo "Using: $AAB_FILE"
+      #      RELEASE_NAME="game2048@${{ env.VERSION }}"
+      #      #
+      #      echo ""; echo "----- Creating Sentry release ($RELEASE_NAME) executed... -----"
+      #      sentry-cli releases new "$RELEASE_NAME" \
+      #        --org "$SENTRY_ORG" \
+      #        --project "$SENTRY_PROJECT" \
+      #        #--finalize \
+      #        ${{ inputs.sentry_debug == true && '--log-level debug' || '' }}
+      #      echo "----- Creating Sentry release ($RELEASE_NAME) completed -----"; echo ""
+      #      #
+      #      echo ""; echo "----- Uploading AAB to Sentry executed... -----"
+      #      sentry-cli build upload "$AAB_FILE" \
+      #        --org "$SENTRY_ORG" \
+      #        --project "$SENTRY_PROJECT" \
+      #        --build-configuration Release \
+      #        --head-sha "${{ github.sha }}" \
+      #        --head-repo-name "gal20040/2048" \
+      #        --vcs-provider github \
+      #        --force-git-metadata \
+      #        ${{ inputs.sentry_debug == true && '--log-level debug' || '' }}
+      #      echo "----- Uploading AAB to Sentry completed -----"; echo ""
+      #    else
+      #      echo "AAB file not found."
+      #      exit 1
+      #    fi
+      #
+      #- name: 📈 Upload '*mapping*' to Sentry
+      #  timeout-minutes: 1
+      #  continue-on-error: true
+      #  if: steps.buildStep.outcome == 'success' && matrix.exportMode == 'aab'
+      #  env:
+      #    SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+      #    SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+      #    SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+      #  run: |
+      #    AAB_FILE=$(find build -name "*.aab" | head -n 1)
+      #    if [ -n "$AAB_FILE" ]; then
+      #      echo "All '*mapping*' files found:"
+      #      find build -name "*mapping*"
+      #      # Upload R8/ProGuard mapping if it exists
+      #      MAPPING_FILE=$(find build -name "*mapping*" | head -n 1)
+      #      if [ -n "$MAPPING_FILE" ]; then
+      #        echo ""; echo "----- Uploading mapping to Sentry executed... -----"
+      #        find build -name "*mapping*" | xargs sentry-cli upload-proguard \
+      #          --org "$SENTRY_ORG" \
+      #          --project "$SENTRY_PROJECT" \
+      #          ${{ inputs.sentry_debug == true && '--log-level debug' || '' }}
+      #        echo "----- Uploading mapping to Sentry completed -----"; echo ""
+      #      else
+      #        echo "No '*mapping*' found (minification may be disabled)"
+      #      fi
+      #    else
+      #      echo "AAB file not found."
+      #      exit 1
+      #    fi
+      #
+      #- name: 📈 Upload symbol's files to Sentry
+      #  timeout-minutes: 1
+      #  continue-on-error: true
+      #  if: steps.buildStep.outcome == 'success' && matrix.exportMode == 'aab'
+      #  env:
+      #    SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+      #    SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+      #    SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+      #  run: |
+      #    AAB_FILE=$(find build -name "*.aab" | head -n 1)
+      #    if [ -n "$AAB_FILE" ]; then
+      #      echo ""; echo "----- Uploading symbol's files to Sentry executed... -----"
+      #      sentry-cli debug-files upload \
+      #        --org "$SENTRY_ORG" \
+      #        --project "$SENTRY_PROJECT" \
+      #        --il2cpp-mapping \
+      #        build/ \
+      #        ${{ inputs.sentry_debug == true && '--log-level debug' || '' }}
+      #      echo "----- Uploading symbol's files to Sentry completed -----"; echo ""
+      #    else
+      #      echo "AAB file not found."
+      #      exit 1
+      #    fi
+      #
+      #- name: 📈 Upload symbol's files to Sentry
+      #  timeout-minutes: 2
+      #  continue-on-error: true
+      #  if: steps.buildStep.outcome == 'success' && matrix.exportMode == 'aab'
+      #  env:
+      #    SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+      #    SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+      #    SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+      #  run: |
+      #    AAB_FILE=$(find build -name "*.aab" | head -n 1)
+      #    if [ -n "$AAB_FILE" ]; then
+      #      echo ""; echo "----- Uploading symbol's files to Sentry executed... -----"
+      #      sentry-cli debug-files upload \
+      #        --org "$SENTRY_ORG" \
+      #        --project "$SENTRY_PROJECT" \
+      #        --il2cpp-mapping \
+      #        ./ \
+      #        ${{ inputs.sentry_debug == true && '--log-level debug' || '' }}
+      #      echo "----- Uploading symbol's files to Sentry completed -----"; echo ""
+      #    else
+      #      echo "AAB file not found."
+      #      exit 1
+      #    fi
 
       - name: Post android build info
         timeout-minutes: 1
@@ -551,218 +551,188 @@ jobs:
           echo "- Build Step outcome: \`${{ steps.buildStep.outcome }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- Build Step conclusion: \`${{ steps.buildStep.conclusion }}\`" >> $GITHUB_STEP_SUMMARY
 
-      #- name: Save Library cache to R2
-      # timeout-minutes: 10
-      #  id: save_library_cache
-      #  if: steps.buildStep.outcome == 'success'
-      #  env:
-      #    AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-      #    AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-      #    AWS_DEFAULT_REGION: us-east-1
-      #    R2_BUCKET: ${{ secrets.R2_BUCKET_NAME }}
-      #    R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
-      #    CACHE_KEY: Library-Android-${{ hashFiles('Packages/manifest.json', 'Packages/packages-lock.json', 'ProjectSettings/ProjectSettings.asset', 'ProjectSettings/ProjectVersion.txt', 'Assets/Settings/Build Profiles/Android_Release_APK.asset', 'Assets/Settings/Build Profiles/Android_Release_AAB.asset') }}
+      ##- name: Save Library cache to R2
+      ## timeout-minutes: 10
+      ##  id: save_library_cache
+      ##  if: steps.buildStep.outcome == 'success'
+      ##  env:
+      ##    AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      ##    AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      ##    AWS_DEFAULT_REGION: us-east-1
+      ##    R2_BUCKET: ${{ secrets.R2_BUCKET_NAME }}
+      ##    R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+      ##    CACHE_KEY: Library-Android-${{ hashFiles('Packages/manifest.json', 'Packages/packages-lock.json', 'ProjectSettings/ProjectSettings.asset', 'ProjectSettings/ProjectVersion.txt', 'Assets/Settings/Build Profiles/Android_Release_APK.asset', 'Assets/Settings/Build Profiles/Android_Release_AAB.asset') }}
+      ##  run: |
+      ##    if [ -d "Library" ]; then
+      ##      echo "Saving cache: $CACHE_KEY"
+      ##      tar -I 'zstd -9' -cf Library.tar.zst Library
+      ##      aws s3 cp Library.tar.zst "s3://$R2_BUCKET/$CACHE_KEY" --endpoint-url $R2_ENDPOINT --quiet
+      ##      echo "Cache saved successfully."
+      ##      source .github/scripts/helpers.sh
+      ##      check_folder ./
+      ##      check_folder "Library/"
+      ##      check_file   "Library.tar.zst"
+      ##    else
+      ##      echo "Library folder not found, skipping cache save."
+      ##    fi
+      #
+      #- name: Upload Gradle files as artifact
+      #  timeout-minutes: 1
+      #  if: always() && steps.buildStep.outcome != 'skipped'
       #  run: |
-      #    if [ -d "Library" ]; then
-      #      echo "Saving cache: $CACHE_KEY"
-      #      tar -I 'zstd -9' -cf Library.tar.zst Library
-      #      aws s3 cp Library.tar.zst "s3://$R2_BUCKET/$CACHE_KEY" --endpoint-url $R2_ENDPOINT --quiet
-      #      echo "Cache saved successfully."
-      #      source .github/scripts/helpers.sh
-      #      check_folder ./
-      #      check_folder "Library/"
-      #      check_file   "Library.tar.zst"
-      #    else
-      #      echo "Library folder not found, skipping cache save."
-      #    fi
-
-      - name: Upload Gradle files as artifact
-        timeout-minutes: 1
-        if: always() && steps.buildStep.outcome != 'skipped'
-        run: |
-          find . -type f \( -iname "*gradle*" \) | zip gradle-files.zip -@
-
-      - name: Upload artifact
-        timeout-minutes: 1
-        if: always() && steps.buildStep.outcome != 'skipped'
-        uses: actions/upload-artifact@v7.0.1
-        with:
-          name: gradle-files
-          path: gradle-files.zip
-          retention-days: 1
-
-      - name: Upload artifact
-        timeout-minutes: 1
-        if: always() && steps.buildStep.outcome != 'skipped'
-        uses: actions/upload-artifact@v7.0.1
-        with:
-          name: Firebase_m2repository
-          path: Assets/GeneratedLocalRepo/Firebase/m2repository
-          retention-days: 1
-
-      - name: Upload mapping files as artifact
-        timeout-minutes: 1
-        if: always() && steps.buildStep.outcome != 'skipped'
-        run: |
-          find . -type f \( -iname "*mapping*" \) | zip mapping-files.zip -@
-
-      - name: Upload artifact
-        timeout-minutes: 1
-        if: always() && steps.buildStep.outcome != 'skipped'
-        uses: actions/upload-artifact@v7.0.1
-        with:
-          name: mapping-files
-          path: mapping-files.zip
-          retention-days: 1
-
-      - name: Upload pb files as artifact
-        timeout-minutes: 10
-        if: always() && steps.buildStep.outcome != 'skipped'
-        run: |
-          find / \( -path /proc -o -path /sys \) -prune -o -type f \( -iname "*.pb" \) | zip pb-files.zip -@
-
-      - name: Upload pb
-        timeout-minutes: 1
-        if: always() && steps.buildStep.outcome != 'skipped'
-        uses: actions/upload-artifact@v7.0.1
-        with:
-          name: pb-files
-          path: pb-files.zip
-          retention-days: 1
-
-      - name: Upload usage files as artifact
-        timeout-minutes: 1
-        if: always() && steps.buildStep.outcome != 'skipped'
-        run: |
-          find . -type f \( -iname "*usage*" \) | zip usage-files.zip -@
-
-      - name: Upload artifact
-        timeout-minutes: 1
-        if: always() && steps.buildStep.outcome != 'skipped'
-        uses: actions/upload-artifact@v7.0.1
-        with:
-          name: usage-files
-          path: usage-files.zip
-          retention-days: 1
-
-      - name: Upload seeds files as artifact
-        timeout-minutes: 1
-        if: always() && steps.buildStep.outcome != 'skipped'
-        run: |
-          find . -type f \( -iname "*seeds*" \) | zip seeds-files.zip -@
-
-      - name: Upload artifact
-        timeout-minutes: 1
-        if: always() && steps.buildStep.outcome != 'skipped'
-        uses: actions/upload-artifact@v7.0.1
-        with:
-          name: seeds-files
-          path: seeds-files.zip
-          retention-days: 1
-
-      - name: Upload configuration files as artifact
-        timeout-minutes: 1
-        if: always() && steps.buildStep.outcome != 'skipped'
-        run: |
-          find . -type f \( -iname "*configuration*" \) | zip configuration-files.zip -@
-
-      - name: Upload artifact
-        timeout-minutes: 1
-        if: always() && steps.buildStep.outcome != 'skipped'
-        uses: actions/upload-artifact@v7.0.1
-        with:
-          name: configuration-files
-          path: configuration-files.zip
-          retention-days: 1
-
-      - name: Upload full-config files as artifact
-        timeout-minutes: 1
-        if: always() && steps.buildStep.outcome != 'skipped'
-        run: |
-          find . -type f \( -iname "*full-config*" \) | zip full-config-files.zip -@
-
-      - name: Upload artifact
-        timeout-minutes: 1
-        if: always() && steps.buildStep.outcome != 'skipped'
-        uses: actions/upload-artifact@v7.0.1
-        with:
-          name: full-config-files
-          path: full-config-files.zip
-          retention-days: 1
-
-      - name: Upload gradle.properties files as artifact
-        timeout-minutes: 1
-        if: always() && steps.buildStep.outcome != 'skipped'
-        run: |
-          find . -type f \( -iname "*gradle*properties*" \) | zip gradle.properties-files.zip -@
-
-      - name: Upload artifact
-        timeout-minutes: 1
-        if: always() && steps.buildStep.outcome != 'skipped'
-        uses: actions/upload-artifact@v7.0.1
-        with:
-          name: gradle.properties-files
-          path: gradle.properties-files.zip
-          retention-days: 1
-
-      - name: Check /github/workspace/r8analysis
-        timeout-minutes: 1
-        if: always() && steps.buildStep.outcome != 'skipped'
-        run: |
-          source .github/scripts/helpers.sh
-          check_folder ${{ github.workspace }}/r8analysis
-          check_folder /tmp/r8analysis
-
-      - name: Upload R8 Configuration Analyzer Report
-        timeout-minutes: 1
-        uses: actions/upload-artifact@v7.0.1
-        if: always()
-        with:
-          name: r8-analysis-report
-          path: '**/r8analysis' # Звездочки найдут папку в любом месте проекта
-          retention-days: 1
-
-      - name: Upload R8 Configuration Analyzer Report
-        timeout-minutes: 1
-        uses: actions/upload-artifact@v7.0.1
-        if: always()
-        with:
-          name: r8-tmp-r8analysis
-          path: '/tmp/r8analysis'
-          retention-days: 1
-
-      - name: Upload r8analysis files as artifact
-        timeout-minutes: 1
-        if: always() && steps.buildStep.outcome != 'skipped'
-        run: |
-          find . \( -iname "*r8analysis*" \) | zip r8analysis.zip -@
-
-      - name: Upload artifact
-        timeout-minutes: 1
-        if: always() && steps.buildStep.outcome != 'skipped'
-        uses: actions/upload-artifact@v7.0.1
-        with:
-          name: r8analysis
-          path: r8analysis.zip
-          retention-days: 1
-
-      - name: Upload r8analysis
-        timeout-minutes: 1
-        if: always() && steps.buildStep.outcome != 'skipped'
-        uses: actions/upload-artifact@v7.0.1
-        with:
-          name: r8analysis_gh_workspace
-          path: '${{ github.workspace }}/r8analysis'
-          retention-days: 1
-
-      - name: Upload r8analysis2
-        timeout-minutes: 1
-        if: always() && steps.buildStep.outcome != 'skipped'
-        uses: actions/upload-artifact@v7.0.1
-        with:
-          name: r8analysis_gh_workspace2
-          path: /github/workspace/r8analysis
-          retention-days: 1
+      #    find . -type f \( -iname "*gradle*" \) | zip gradle-files.zip -@
+      #
+      #- name: Upload artifact
+      #  timeout-minutes: 1
+      #  if: always() && steps.buildStep.outcome != 'skipped'
+      #  uses: actions/upload-artifact@v7.0.1
+      #  with:
+      #    name: gradle-files
+      #    path: gradle-files.zip
+      #    retention-days: 1
+      #
+      #- name: Upload artifact
+      #  timeout-minutes: 1
+      #  if: always() && steps.buildStep.outcome != 'skipped'
+      #  uses: actions/upload-artifact@v7.0.1
+      #  with:
+      #    name: Firebase_m2repository
+      #    path: Assets/GeneratedLocalRepo/Firebase/m2repository
+      #    retention-days: 1
+      #
+      #- name: Upload mapping files as artifact
+      #  timeout-minutes: 1
+      #  if: always() && steps.buildStep.outcome != 'skipped'
+      #  run: |
+      #    find . -type f \( -iname "*mapping*" \) | zip mapping-files.zip -@
+      #
+      #- name: Upload artifact
+      #  timeout-minutes: 1
+      #  if: always() && steps.buildStep.outcome != 'skipped'
+      #  uses: actions/upload-artifact@v7.0.1
+      #  with:
+      #    name: mapping-files
+      #    path: mapping-files.zip
+      #    retention-days: 1
+      #
+      #- name: Upload usage files as artifact
+      #  timeout-minutes: 1
+      #  if: always() && steps.buildStep.outcome != 'skipped'
+      #  run: |
+      #    find . -type f \( -iname "*usage*" \) | zip usage-files.zip -@
+      #
+      #- name: Upload artifact
+      #  timeout-minutes: 1
+      #  if: always() && steps.buildStep.outcome != 'skipped'
+      #  uses: actions/upload-artifact@v7.0.1
+      #  with:
+      #    name: usage-files
+      #    path: usage-files.zip
+      #    retention-days: 1
+      #
+      #- name: Upload seeds files as artifact
+      #  timeout-minutes: 1
+      #  if: always() && steps.buildStep.outcome != 'skipped'
+      #  run: |
+      #    find . -type f \( -iname "*seeds*" \) | zip seeds-files.zip -@
+      #
+      #- name: Upload artifact
+      #  timeout-minutes: 1
+      #  if: always() && steps.buildStep.outcome != 'skipped'
+      #  uses: actions/upload-artifact@v7.0.1
+      #  with:
+      #    name: seeds-files
+      #    path: seeds-files.zip
+      #    retention-days: 1
+      #
+      #- name: Upload configuration files as artifact
+      #  timeout-minutes: 1
+      #  if: always() && steps.buildStep.outcome != 'skipped'
+      #  run: |
+      #    find . -type f \( -iname "*configuration*" \) | zip configuration-files.zip -@
+      #
+      #- name: Upload artifact
+      #  timeout-minutes: 1
+      #  if: always() && steps.buildStep.outcome != 'skipped'
+      #  uses: actions/upload-artifact@v7.0.1
+      #  with:
+      #    name: configuration-files
+      #    path: configuration-files.zip
+      #    retention-days: 1
+      #
+      #- name: Upload full-config files as artifact
+      #  timeout-minutes: 1
+      #  if: always() && steps.buildStep.outcome != 'skipped'
+      #  run: |
+      #    find . -type f \( -iname "*full-config*" \) | zip full-config-files.zip -@
+      #
+      #- name: Upload artifact
+      #  timeout-minutes: 1
+      #  if: always() && steps.buildStep.outcome != 'skipped'
+      #  uses: actions/upload-artifact@v7.0.1
+      #  with:
+      #    name: full-config-files
+      #    path: full-config-files.zip
+      #    retention-days: 1
+      #
+      #- name: Upload gradle.properties files as artifact
+      #  timeout-minutes: 1
+      #  if: always() && steps.buildStep.outcome != 'skipped'
+      #  run: |
+      #    find . -type f \( -iname "*gradle*properties*" \) | zip gradle.properties-files.zip -@
+      #
+      #- name: Upload artifact
+      #  timeout-minutes: 1
+      #  if: always() && steps.buildStep.outcome != 'skipped'
+      #  uses: actions/upload-artifact@v7.0.1
+      #  with:
+      #    name: gradle.properties-files
+      #    path: gradle.properties-files.zip
+      #    retention-days: 1
+      #
+      #- name: Check /github/workspace/r8analysis
+      #  timeout-minutes: 1
+      #  if: always() && steps.buildStep.outcome != 'skipped'
+      #  run: |
+      #    source .github/scripts/helpers.sh
+      #    check_folder ${{ github.workspace }}/r8analysis
+      #    check_folder /tmp/r8analysis
+      #
+      #- name: Upload R8 Configuration Analyzer Report
+      #  timeout-minutes: 1
+      #  uses: actions/upload-artifact@v7.0.1
+      #  if: always()
+      #  with:
+      #    name: r8-analysis-report
+      #    path: '**/r8analysis' # Звездочки найдут папку в любом месте проекта
+      #    retention-days: 1
+      #
+      #- name: Upload R8 Configuration Analyzer Report
+      #  timeout-minutes: 1
+      #  uses: actions/upload-artifact@v7.0.1
+      #  if: always()
+      #  with:
+      #    name: r8-tmp-r8analysis
+      #    path: '/tmp/r8analysis'
+      #    retention-days: 1
+      #
+      #- name: Upload r8analysis
+      #  timeout-minutes: 1
+      #  if: always() && steps.buildStep.outcome != 'skipped'
+      #  uses: actions/upload-artifact@v7.0.1
+      #  with:
+      #    name: r8analysis_gh_workspace
+      #    path: '${{ github.workspace }}/r8analysis'
+      #    retention-days: 1
+      #
+      #- name: Upload r8analysis2
+      #  timeout-minutes: 1
+      #  if: always() && steps.buildStep.outcome != 'skipped'
+      #  uses: actions/upload-artifact@v7.0.1
+      #  with:
+      #    name: r8analysis_gh_workspace2
+      #    path: /github/workspace/r8analysis
+      #    retention-days: 1
 
       - name: Revert `ProjectSettings/ProjectSettings.asset`
         timeout-minutes: 1
@@ -773,30 +743,30 @@ jobs:
           rm "$DEST"
           mv "$DEST.bak" "$DEST"
 
-      - name: Find r8analysis
-        timeout-minutes: 20
-        if: always()
-        run: find /github/workspace \( -iname "*r8analysis*" \) 2>/dev/null
-
-      - name: Find r8analysis
-        timeout-minutes: 20
-        if: always()
-        run: find /tmp \( -iname "*r8analysis*" \) 2>/dev/null
-
-      - name: Find r8analysis
-        timeout-minutes: 20
-        if: always()
-        run: find /root \( -iname "*r8analysis*" \) 2>/dev/null
-
-      - name: Find r8analysis
-        timeout-minutes: 20
-        if: always()
-        run: find / \( -path /proc -o -path /sys \) -prune -o \( -iname "*r8analysis*" \) -print 2>/dev/null
-
-      - name: Find soong
-        timeout-minutes: 20
-        if: always()
-        run: find / \( -path /proc -o -path /sys \) -prune -o \( -iname "*soong*" \) -print 2>/dev/null
+      #- name: Find r8analysis
+      #  timeout-minutes: 20
+      #  if: always()
+      #  run: find /github/workspace \( -iname "*r8analysis*" \) 2>/dev/null
+      #
+      #- name: Find r8analysis
+      #  timeout-minutes: 20
+      #  if: always()
+      #  run: find /tmp \( -iname "*r8analysis*" \) 2>/dev/null
+      #
+      #- name: Find r8analysis
+      #  timeout-minutes: 20
+      #  if: always()
+      #  run: find /root \( -iname "*r8analysis*" \) 2>/dev/null
+      #
+      #- name: Find r8analysis
+      #  timeout-minutes: 20
+      #  if: always()
+      #  run: find / \( -path /proc -o -path /sys \) -prune -o \( -iname "*r8analysis*" \) -print 2>/dev/null
+      #
+      #- name: Find soong
+      #  timeout-minutes: 20
+      #  if: always()
+      #  run: find / \( -path /proc -o -path /sys \) -prune -o \( -iname "*soong*" \) -print 2>/dev/null
 
       - name: Patch Gradle project for R8 Configuration Analyzer
         if: always() && steps.buildStep.outcome == 'success'
@@ -805,21 +775,21 @@ jobs:
           source .github/scripts/helpers.sh
           #check_folder ${{ github.workspace }}/r8analysis
           #
-          # Обновляем Gradle до 9.3.1
+          # Обновляем Gradle до 9.5.0
           check_folder $GRADLE_PROJECT
           check_folder "$GRADLE_PROJECT/gradle/"
           check_folder "$GRADLE_PROJECT/gradle/wrapper/"
           cat_file "$GRADLE_PROJECT/gradle/wrapper/gradle-wrapper.properties"
-          sed -i 's|distributionUrl=.*|distributionUrl=https\\://services.gradle.org/distributions/gradle-9.3.1-bin.zip|' \
+          sed -i 's|distributionUrl=.*|distributionUrl=https\\://services.gradle.org/distributions/gradle-9.5.0-bin.zip|' \
             "$GRADLE_PROJECT/gradle/wrapper/gradle-wrapper.properties"
           cat_file "$GRADLE_PROJECT/gradle/wrapper/gradle-wrapper.properties"
           #
-          # Обновляем AGP до 9.1.1
+          # Обновляем AGP до 9.3.0
           cat_file "$GRADLE_PROJECT/build.gradle"
-          sed -i "s|id 'com.android.application' version '9.0.1'|id 'com.android.application' version '9.1.1'|" \
+          sed -i "s|id 'com.android.application' version '9.0.1'|id 'com.android.application' version '9.3.0'|" \
             "$GRADLE_PROJECT/build.gradle"
           cat_file "$GRADLE_PROJECT/build.gradle"
-          sed -i "s|id 'com.android.library' version '9.0.1'|id 'com.android.library' version '9.1.1'|" \
+          sed -i "s|id 'com.android.library' version '9.0.1'|id 'com.android.library' version '9.3.0'|" \
             "$GRADLE_PROJECT/build.gradle"
           cat_file "$GRADLE_PROJECT/build.gradle"
           #
@@ -842,15 +812,15 @@ jobs:
           find / -iname "gradlew" 2>/dev/null
           find / -iname "build.gradle" 2>/dev/null
 
-      - name: Setup Gradle 9.3.1
+      - name: Setup Gradle 9.5.0
         if: always() && steps.buildStep.outcome != 'skipped'
         run: |
-          wget -q https://services.gradle.org/distributions/gradle-9.3.1-bin.zip -O /tmp/gradle-9.3.1-bin.zip
-          unzip -q /tmp/gradle-9.3.1-bin.zip -d /tmp/
+          wget -q https://services.gradle.org/distributions/gradle-9.5.0-bin.zip -O /tmp/gradle-9.5.0-bin.zip
+          unzip -q /tmp/gradle-9.5.0-bin.zip -d /tmp/
           source .github/scripts/helpers.sh
-          check_folder /tmp/gradle-9.3.1/bin/
-          check_file   /tmp/gradle-9.3.1/bin/gradle
-          echo "GRADLE_BIN=/tmp/gradle-9.3.1/bin/gradle" >> $GITHUB_ENV
+          check_folder /tmp/gradle-9.5.0/bin/
+          check_file   /tmp/gradle-9.5.0/bin/gradle
+          echo "GRADLE_BIN=/tmp/gradle-9.5.0/bin/gradle" >> $GITHUB_ENV
 
       - name: Run R8 Configuration Analyzer
         if: always() && steps.buildStep.outcome != 'skipped'
@@ -883,7 +853,7 @@ jobs:
           check_folder /tmp/r8analysis
 
       - name: Upload pb files as artifact
-        timeout-minutes: 1
+        timeout-minutes: 10
         if: always() && steps.buildStep.outcome != 'skipped'
         run: |
           find / \( -path /proc -o -path /sys \) -prune -o -type f \( -iname "*.pb" \) | zip pb-files2.zip -@
@@ -904,21 +874,6 @@ jobs:
         with:
           name: r8-tmp-r8analysis_2
           path: '/tmp/r8analysis'
-          retention-days: 1
-
-      - name: Upload r8analysis files as artifact
-        timeout-minutes: 1
-        if: always() && steps.buildStep.outcome != 'skipped'
-        run: |
-          find . \( -iname "*r8analysis*" \) | zip r8analysis2.zip -@
-
-      - name: Upload artifact
-        timeout-minutes: 1
-        if: always() && steps.buildStep.outcome != 'skipped'
-        uses: actions/upload-artifact@v7.0.1
-        with:
-          name: r8analysis2
-          path: r8analysis2.zip
           retention-days: 1
 
       - name: Upload r8analysis
