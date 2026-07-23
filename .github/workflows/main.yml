@@ -895,15 +895,6 @@ jobs:
           find ${{ github.workspace }}/r8analysis -type f 2>/dev/null || echo "r8analysis пуст"
           find ${{ env.GRADLE_PROJECT }} -name "*keepradius*" -o -name "*.pb" 2>/dev/null || true
 
-      - name: Upload R8 Configuration Analyzer Report
-        timeout-minutes: 1
-        uses: actions/upload-artifact@v7.0.1
-        if: always()
-        with:
-          name: r8-tmp-r8analysis_2
-          path: '/tmp/r8analysis'
-          retention-days: 1
-
       - name: Upload R8 Configuration Analysis
         if: always() && steps.buildStep.outcome == 'success'
         uses: actions/upload-artifact@v7.0.1
