@@ -829,9 +829,8 @@ jobs:
           source .github/scripts/helpers.sh
           #
           # Исправляем SDK path
-          check_file "$GRADLE_PROJECT/local.properties"
+          check_folder "$GRADLE_PROJECT/"
           echo "sdk.dir=$ANDROID_SDK_ROOT" > "$GRADLE_PROJECT/local.properties"
-          check_file "$GRADLE_PROJECT/local.properties"
           #
           check_folder $ANDROID_SDK_ROOT/ndk/
           # Находим доступный NDK на раннере
@@ -853,8 +852,8 @@ jobs:
           sed -i '/ndkVersion/d' "$GRADLE_PROJECT/launcher/build.gradle"
           check_file "$GRADLE_PROJECT/launcher/build.gradle"
           #
-          echo "=== local.properties ==="
-          cat "$GRADLE_PROJECT/local.properties"
+          #echo "=== local.properties ==="
+          #cat "$GRADLE_PROJECT/local.properties"
           echo "=== ndkPath line ==="
           grep -n "ndkPath" "$GRADLE_PROJECT/launcher/build.gradle"
           echo "====================================================="
