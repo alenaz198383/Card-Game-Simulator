@@ -870,6 +870,10 @@ jobs:
             cat_file $f
           done
           #
+          # Удаляем ненужные для анализа скрипты символов
+          sed -i '/apply from.*setupSymbols/d'     "${{ env.GRADLE_PROJECT }}/launcher/build.gradle"
+          sed -i '/apply from.*keepUnitySymbols/d' "${{ env.GRADLE_PROJECT }}/launcher/build.gradle"
+          #
           echo "=== local.properties ==="
           cat_file "${{ env.GRADLE_PROJECT }}/local.properties"
           echo "=== build.gradle ==="
@@ -880,6 +884,9 @@ jobs:
           echo "=== ndkVersion line ==="
           grep -rn "ndkVersion" "${{ env.GRADLE_PROJECT }}" --include="*.gradle" || true
           echo "====================================================="
+          echo "=== apply from lines ===" 
+          grep -n "apply from" "$GRADLE_PROJECT/launcher/build.gradle" || true
+          echo "====================================================="
 
       - name: Run R8 Configuration Analyzer
         if: always() && steps.buildStep.outcome != 'skipped'
@@ -887,12 +894,6 @@ jobs:
           GRADLE_OPTS="-Dcom.android.tools.r8.dumpkeepradiushtmltodirectory=${{ github.workspace }}/r8analysis"
           echo "=== GRADLE_OPTS ==="
           echo "$GRADLE_OPTS"
-          echo "====================================================="
-          echo "=== ndkPath line ==="
-          grep -rn "ndkPath" "${{ env.GRADLE_PROJECT }}" --include="*.gradle" || true
-          echo "====================================================="
-          echo "=== ndkVersion line ==="
-          grep -rn "ndkVersion" "${{ env.GRADLE_PROJECT }}" --include="*.gradle" || true
           echo "====================================================="
           #
           cd ${{ env.GRADLE_PROJECT }}
