@@ -888,6 +888,12 @@ jobs:
           echo "=== GRADLE_OPTS ==="
           echo "$GRADLE_OPTS"
           echo "====================================================="
+          echo "=== ndkPath line ==="
+          grep -rn "ndkPath" "${{ env.GRADLE_PROJECT }}" --include="*.gradle"
+          echo "====================================================="
+          echo "=== ndkVersion line ==="
+          grep -rn "ndkVersion" "${{ env.GRADLE_PROJECT }}" --include="*.gradle"
+          echo "====================================================="
           #
           cd ${{ env.GRADLE_PROJECT }}
           ${{ env.GRADLE_BIN }} :launcher:analyzeReleaseR8Config --no-daemon
