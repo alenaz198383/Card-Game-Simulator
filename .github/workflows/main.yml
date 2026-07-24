@@ -16,8 +16,6 @@ env:
   GH_WS_R8PATH_test2: "${{ github.workspace }}/r8analysis"
   GRADLE_OPTS_test1: "-Dcom.android.tools.r8.dumpkeepradiushtmltodirectory=/github/workspace/r8analysis"
   GRADLE_OPTS_test2: "-Dcom.android.tools.r8.dumpkeepradiushtmltodirectory=${{ github.workspace }}/r8analysis"
-  GRADLE_OPTS_test3: "-Dcom.android.tools.r8.dumpkeepradiushtmltodirectory=${{ env.GH_WS_R8PATH_test1 }}"
-  GRADLE_OPTS_test4: "-Dcom.android.tools.r8.dumpkeepradiushtmltodirectory=${{ env.GH_WS_R8PATH_test2 }}"
 on:
   release:
     types:
@@ -82,8 +80,6 @@ jobs:
           echo "GH_WS_R8PATH2:        ${{ env.GH_WS_R8PATH_test2 }}"
           echo "GRADLE_OPTS_test1:    ${{ env.GRADLE_OPTS_test1 }}"
           echo "GRADLE_OPTS_test2:    ${{ env.GRADLE_OPTS_test2 }}"
-          echo "GRADLE_OPTS_test3:    ${{ env.GRADLE_OPTS_test3 }}"
-          echo "GRADLE_OPTS_test4:    ${{ env.GRADLE_OPTS_test4 }}"
 
       - name: 🔑 Check Unity license
         timeout-minutes: 1
@@ -368,8 +364,6 @@ jobs:
           echo "GH_WS_R8PATH2:        ${{ env.GH_WS_R8PATH_test2 }}"
           echo "GRADLE_OPTS_test1:    ${{ env.GRADLE_OPTS_test1 }}"
           echo "GRADLE_OPTS_test2:    ${{ env.GRADLE_OPTS_test2 }}"
-          echo "GRADLE_OPTS_test3:    ${{ env.GRADLE_OPTS_test3 }}"
-          echo "GRADLE_OPTS_test4:    ${{ env.GRADLE_OPTS_test4 }}"
 
       - name: 📈 Install sentry-cli
         timeout-minutes: 1
