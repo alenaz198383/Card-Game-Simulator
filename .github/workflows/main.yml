@@ -12,6 +12,12 @@ env:
   DOTNET_NOLOGO: true
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  GH_WS_R8PATH_test1: ${{ github.workspace }}/r8analysis
+  GH_WS_R8PATH_test2: "${{ github.workspace }}/r8analysis"
+  GRADLE_OPTS_test1: "-Dcom.android.tools.r8.dumpkeepradiushtmltodirectory=/github/workspace/r8analysis"
+  GRADLE_OPTS_test2: "-Dcom.android.tools.r8.dumpkeepradiushtmltodirectory=${{ github.workspace }}/r8analysis"
+  GRADLE_OPTS_test3: "-Dcom.android.tools.r8.dumpkeepradiushtmltodirectory=${{ env.GH_WS_R8PATH_test1 }}"
+  GRADLE_OPTS_test4: "-Dcom.android.tools.r8.dumpkeepradiushtmltodirectory=${{ env.GH_WS_R8PATH_test2 }}"
 on:
   release:
     types:
@@ -69,6 +75,16 @@ jobs:
     runs-on: ubuntu-latest
     # runs-on: self-hosted
     steps:
+      - name: Show Final Using Versions
+        timeout-minutes: 1
+        run: |
+          echo "GH_WS_R8PATH1:        ${{ env.GH_WS_R8PATH_test1 }}"
+          echo "GH_WS_R8PATH2:        ${{ env.GH_WS_R8PATH_test2 }}"
+          echo "GRADLE_OPTS_test1:    ${{ env.GRADLE_OPTS_test1 }}"
+          echo "GRADLE_OPTS_test2:    ${{ env.GRADLE_OPTS_test2 }}"
+          echo "GRADLE_OPTS_test3:    ${{ env.GRADLE_OPTS_test3 }}"
+          echo "GRADLE_OPTS_test4:    ${{ env.GRADLE_OPTS_test4 }}"
+
       - name: 🔑 Check Unity license
         timeout-minutes: 1
         id: checklicense
@@ -208,8 +224,8 @@ jobs:
       - name: Deps
         timeout-minutes: 2
         run: |
-          sudo apt update
-          sudo apt install -y p7zip-full
+          sudo apt-get update
+          sudo apt-get install -y p7zip-full
 
       #- name: Free Disk Space
       #  timeout-minutes: 6
@@ -248,9 +264,11 @@ jobs:
           mkdir -p Assets/Plugins/Sentry/
           echo "$SENTRY_CLI_OPTIONS" > Assets/Plugins/Sentry/SentryCliOptions.asset
           #
-          mkdir -p ${{ github.workspace }}/r8analysis
+          gh_r8_path="${{ github.workspace }}/r8analysis"
+          mkdir -p $gh_r8_path
           mkdir -p /tmp/r8analysis
-          echo "GRADLE_OPTS=-Dcom.android.tools.r8.dumpkeepradiushtmltodirectory=${{ github.workspace }}/r8analysis" >> $GITHUB_ENV
+          echo "GH_WS_R8PATH=$gh_r8_path"                                                     >> $GITHUB_ENV
+          echo "GRADLE_OPTS=-Dcom.android.tools.r8.dumpkeepradiushtmltodirectory=$gh_r8_path" >> $GITHUB_ENV
 
       #- name: Restore Library cache from R2
       # timeout-minutes: 1
@@ -334,17 +352,24 @@ jobs:
           PROJECT_BUILD_VERSION=$(grep -oP 'bundleVersion:\s*\K[\d.]+' ProjectSettings/ProjectSettings.asset)
           PROJECT_ANDROID_CODE=$(grep -oP 'AndroidBundleVersionCode:\s*\K\d+' ProjectSettings/ProjectSettings.asset)
           #
-          echo "VERSION=$PROJECT_BUILD_VERSION"                                        >> "$GITHUB_ENV"
-          echo "ANDROID_VERSION_CODE=$PROJECT_ANDROID_CODE"                            >> "$GITHUB_ENV"
-          echo "VERSIONnMODE=${{ env.ANDROID_VERSION_CODE }}.${{ matrix.exportMode }}" >> "$GITHUB_ENV"
+          echo "VERSION=$PROJECT_BUILD_VERSION"                              >> "$GITHUB_ENV"
+          echo "ANDROID_VERSION_CODE=$PROJECT_ANDROID_CODE"                  >> "$GITHUB_ENV"
+          echo "VERSIONnMODE=$PROJECT_ANDROID_CODE.${{ matrix.exportMode }}" >> "$GITHUB_ENV"
 
       - name: Show Final Using Versions
         timeout-minutes: 1
         run: |
-          echo "Final using VERSION:              ${{ env.VERSION }}"
-          echo "Final using ANDROID_VERSION_CODE: ${{ env.ANDROID_VERSION_CODE }}"
-          echo "Final using GRADLE_OPTS:          ${{ env.GRADLE_OPTS }}"
-          echo "Final using VERSIONnMODE:         ${{ env.VERSIONnMODE }}"
+          echo "VERSION:              ${{ env.VERSION }}"
+          echo "ANDROID_VERSION_CODE: ${{ env.ANDROID_VERSION_CODE }}"
+          echo "GRADLE_OPTS:          ${{ env.GRADLE_OPTS }}"
+          echo "VERSIONnMODE:         ${{ env.VERSIONnMODE }}"
+          echo "GH_WS_R8PATH:         ${{ env.GH_WS_R8PATH }}"
+          echo "GH_WS_R8PATH1:        ${{ env.GH_WS_R8PATH_test1 }}"
+          echo "GH_WS_R8PATH2:        ${{ env.GH_WS_R8PATH_test2 }}"
+          echo "GRADLE_OPTS_test1:    ${{ env.GRADLE_OPTS_test1 }}"
+          echo "GRADLE_OPTS_test2:    ${{ env.GRADLE_OPTS_test2 }}"
+          echo "GRADLE_OPTS_test3:    ${{ env.GRADLE_OPTS_test3 }}"
+          echo "GRADLE_OPTS_test4:    ${{ env.GRADLE_OPTS_test4 }}"
 
       - name: 📈 Install sentry-cli
         timeout-minutes: 1
@@ -372,7 +397,7 @@ jobs:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
           SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
-          GRADLE_OPTS: '-Dcom.android.tools.r8.dumpkeepradiushtmltodirectory=/github/workspace/r8analysis'
+          GRADLE_OPTS: ${{ env.GRADLE_OPTS }}
           R8_DUMP_KEEP_RADIUS: 'true'
         with:
           targetPlatform: Android
@@ -428,13 +453,9 @@ jobs:
             cp -r "build/" "artifacts/"
             mv "$SRC" "$DEST"
             #
-            archive_name="${{ env.VERSIONnMODE }}.7z"
-            compress_7z   "$DIR/" "artifacts/$archive_name" 9
-            time aws s3 cp "artifacts/$archive_name" "s3://$R2_BUCKET/$archive_name" --endpoint-url $R2_ENDPOINT --quiet
-            #
             zst_file_name="${{ env.VERSIONnMODE }}.tar.zst"
-            compress_zstd "$DIR/" "artifacts/$archive_name" 19
-            time aws s3 cp "artifacts/$zst_file_name" "s3://$R2_BUCKET/$zst_file_name" --endpoint-url $R2_ENDPOINT --quiet
+            compress_zstd "$DIR" "artifacts/$zst_file_name" 19
+            time aws s3 cp "artifacts/$zst_file_name" "s3://$R2_BUCKET/${{ env.VERSIONnMODE }}/$zst_file_name" --endpoint-url $R2_ENDPOINT --quiet
             #
             rm -rf artifacts/
           else
@@ -570,6 +591,16 @@ jobs:
           echo "- Build Step Exit Code: \`${{ steps.buildStep.outputs.engineExitCode }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- Build Step outcome: \`${{ steps.buildStep.outcome }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- Build Step conclusion: \`${{ steps.buildStep.conclusion }}\`" >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload R8 Configuration Analyzer Report
+        continue-on-error: true
+        timeout-minutes: 1
+        uses: actions/upload-artifact@v7.0.1
+        if: always() && steps.run_R8_configuration_analyzer.outcome != 'skipped'
+        with:
+          name: r8-tmp-r8analysis_main_stage
+          path: '/tmp/r8analysis'
+          retention-days: 1
 
       ##- name: Save Library cache to R2
       ## timeout-minutes: 10
@@ -710,12 +741,12 @@ jobs:
       #    path: gradle.properties-files.zip
       #    retention-days: 1
       #
-      #- name: Check /github/workspace/r8analysis
+      #- name: Check ${{ env.GH_WS_R8PATH }}
       #  timeout-minutes: 1
       #  if: always() && steps.buildStep.outcome != 'skipped'
       #  run: |
       #    source .github/scripts/helpers.sh
-      #    check_folder ${{ github.workspace }}/r8analysis
+      #    check_folder ${{ env.GH_WS_R8PATH }}
       #    check_folder /tmp/r8analysis
       #
       #- name: Upload R8 Configuration Analyzer Report
@@ -742,7 +773,7 @@ jobs:
       #  uses: actions/upload-artifact@v7.0.1
       #  with:
       #    name: r8analysis_gh_workspace
-      #    path: '${{ github.workspace }}/r8analysis'
+      #    path: '${{ env.GH_WS_R8PATH }}'
       #    retention-days: 1
       #
       #- name: Upload r8analysis2
@@ -751,7 +782,7 @@ jobs:
       #  uses: actions/upload-artifact@v7.0.1
       #  with:
       #    name: r8analysis_gh_workspace2
-      #    path: /github/workspace/r8analysis
+      #    path: ${{ env.GH_WS_R8PATH }}
       #    retention-days: 1
 
       - name: Upload Gradle Problems Report (main build)
@@ -770,11 +801,11 @@ jobs:
             source .github/scripts/helpers.sh
             #
             archive_name="${{ env.VERSIONnMODE }}.Gradle_Problems_Report-main_build.7z"
-            compress_7z "$REPORTS_DIR/" "$archive_name" 9
+            compress_7z "$REPORTS_DIR" "$archive_name" 9
             time aws s3 cp "$archive_name" "s3://$R2_BUCKET/${{ env.VERSIONnMODE }}/$archive_name" --endpoint-url $R2_ENDPOINT --quiet
             #
             zst_file_name="${{ env.VERSIONnMODE }}.Gradle_Problems_Report-main_build.tar.zst"
-            compress_zstd "$REPORTS_DIR/" "$zst_file_name" 19
+            compress_zstd "$REPORTS_DIR" "$zst_file_name" 19
             time aws s3 cp "$zst_file_name" "s3://$R2_BUCKET/${{ env.VERSIONnMODE }}/$zst_file_name" --endpoint-url $R2_ENDPOINT --quiet
           else
             echo "'$REPORTS_DIR' folder not found, skipping uploading it to R2."
@@ -791,7 +822,7 @@ jobs:
       #- name: Find r8analysis
       #  timeout-minutes: 20
       #  if: always()
-      #  run: find /github/workspace \( -iname "*r8analysis*" \) 2>/dev/null
+      #  run: find ${{ github.workspace }} \( -iname "*r8analysis*" \) 2>/dev/null
       #
       #- name: Find r8analysis
       #  timeout-minutes: 20
@@ -808,11 +839,6 @@ jobs:
       #  if: always()
       #  run: find / \( -path /proc -o -path /sys \) -prune -o \( -iname "*r8analysis*" \) -print 2>/dev/null
       #
-      #- name: Find soong
-      #  timeout-minutes: 20
-      #  if: always()
-      #  run: find / \( -path /proc -o -path /sys \) -prune -o \( -iname "*soong*" \) -print 2>/dev/null
-
       #- name: Find Gradle
       #  timeout-minutes: 10
       #  continue-on-error: true
@@ -871,11 +897,17 @@ jobs:
           echo "=== build.gradle ==="
           cat_file "${{ env.GRADLE_PROJECT }}/build.gradle"
           #
-          check_folder ${{ github.workspace }}/r8analysis
-          rm -rf ${{ github.workspace }}/r8analysis
-          check_folder ${{ github.workspace }}/r8analysis
-          mkdir -p ${{ github.workspace }}/r8analysis
-          check_folder ${{ github.workspace }}/r8analysis
+          check_folder ${{ env.GH_WS_R8PATH }}
+          rm -rf       ${{ env.GH_WS_R8PATH }}
+          check_folder ${{ env.GH_WS_R8PATH }}
+          mkdir -p     ${{ env.GH_WS_R8PATH }}
+          check_folder ${{ env.GH_WS_R8PATH }}
+          #
+          check_folder /tmp/r8analysis
+          rm -rf       /tmp/r8analysis
+          check_folder /tmp/r8analysis
+          mkdir -p     /tmp/r8analysis
+          check_folder /tmp/r8analysis
 
       - name: Fix SDK/NDK paths for R8 analyzer
         continue-on-error: true
@@ -957,9 +989,8 @@ jobs:
         id: run_R8_configuration_analyzer
         if: always() && steps.fix_sdk_ndk_paths_for_R8.outcome == 'success'
         run: |
-          GRADLE_OPTS="-Dcom.android.tools.r8.dumpkeepradiushtmltodirectory=${{ github.workspace }}/r8analysis"
           echo "=== GRADLE_OPTS ==="
-          echo "$GRADLE_OPTS"
+          echo "${{ env.GRADLE_OPTS }}"
           echo "====================================================="
           #
           cd ${{ env.GRADLE_PROJECT }}
@@ -992,11 +1023,11 @@ jobs:
             source .github/scripts/helpers.sh
             #
             archive_name="${{ env.VERSIONnMODE }}.R8_Configuration_Analyzer_Report.7z"
-            compress_7z "$REPORTS_DIR/" "$archive_name" 9
+            compress_7z "$REPORTS_DIR" "$archive_name" 9
             time aws s3 cp "$archive_name" "s3://$R2_BUCKET/${{ env.VERSIONnMODE }}/$archive_name" --endpoint-url $R2_ENDPOINT --quiet
             #
             zst_file_name="${{ env.VERSIONnMODE }}.R8_Configuration_Analyzer_Report.tar.zst"
-            compress_zstd "$REPORTS_DIR/" "$zst_file_name" 19
+            compress_zstd "$REPORTS_DIR" "$zst_file_name" 19
             time aws s3 cp "$zst_file_name" "s3://$R2_BUCKET/${{ env.VERSIONnMODE }}/$zst_file_name" --endpoint-url $R2_ENDPOINT --quiet
           else
             echo "'$REPORTS_DIR' folder not found, skipping uploading it to R2."
@@ -1006,7 +1037,7 @@ jobs:
         continue-on-error: true
         if: always() && steps.run_R8_configuration_analyzer.outcome != 'skipped'
         run: |
-          find ${{ github.workspace }}/r8analysis -type f 2>/dev/null || echo "r8analysis пуст"
+          find ${{ env.GH_WS_R8PATH }} -type f 2>/dev/null || echo "r8analysis пуст"
           find ${{ env.GRADLE_PROJECT }} -name "*keepradius*" -o -name "*.pb" 2>/dev/null || true
 
       - name: Upload R8 Configuration Analysis
@@ -1020,72 +1051,36 @@ jobs:
           R2_BUCKET: ${{ secrets.R2_BUCKET_NAME }}
           R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
         run: |
-          REPORTS_DIR="${{ github.workspace }}/r8analysis/"
+          REPORTS_DIR="${{ env.GH_WS_R8PATH }}/"
           if [ -d "$REPORTS_DIR" ]; then
             source .github/scripts/helpers.sh
             #
-            archive_name="${{ env.VERSIONnMODE }}.r8-configuration-analysis_asd1.7z"
-            compress_7z "$REPORTS_DIR/" "$archive_name" 9
+            archive_name="${{ env.VERSIONnMODE }}.r8-configuration-analysis.7z"
+            compress_7z "$REPORTS_DIR" "$archive_name" 9
             time aws s3 cp "$archive_name" "s3://$R2_BUCKET/${{ env.VERSIONnMODE }}/$archive_name" --endpoint-url $R2_ENDPOINT --quiet
             #
-            zst_file_name="${{ env.VERSIONnMODE }}.r8-configuration-analysis_asd1.tar.zst"
-            compress_zstd "$REPORTS_DIR/" "$zst_file_name" 19
+            zst_file_name="${{ env.VERSIONnMODE }}.r8-configuration-analysis.tar.zst"
+            compress_zstd "$REPORTS_DIR" "$zst_file_name" 19
             time aws s3 cp "$zst_file_name" "s3://$R2_BUCKET/${{ env.VERSIONnMODE }}/$zst_file_name" --endpoint-url $R2_ENDPOINT --quiet
           else
             echo "'$REPORTS_DIR' folder not found, skipping uploading it to R2."
           fi
 
-      - name: Upload R8 Configuration Analysis
-        continue-on-error: true
-        timeout-minutes: 1
-        if: always() && steps.run_R8_configuration_analyzer.outcome != 'skipped'
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: us-east-1
-          R2_BUCKET: ${{ secrets.R2_BUCKET_NAME }}
-          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
-        run: |
-          REPORTS_DIR="/home/runner/work/Card-Game-Simulator/Card-Game-Simulator/r8analysis/"
-          if [ -d "$REPORTS_DIR" ]; then
-            source .github/scripts/helpers.sh
-            #
-            archive_name="${{ env.VERSIONnMODE }}.r8-configuration-analysis_asd2.7z"
-            compress_7z "$REPORTS_DIR/" "$archive_name" 9
-            time aws s3 cp "$archive_name" "s3://$R2_BUCKET/${{ env.VERSIONnMODE }}/$archive_name" --endpoint-url $R2_ENDPOINT --quiet
-            #
-            zst_file_name="${{ env.VERSIONnMODE }}.r8-configuration-analysis_asd2.tar.zst"
-            compress_zstd "$REPORTS_DIR/" "$zst_file_name" 19
-            time aws s3 cp "$zst_file_name" "s3://$R2_BUCKET/${{ env.VERSIONnMODE }}/$zst_file_name" --endpoint-url $R2_ENDPOINT --quiet
-          else
-            echo "'$REPORTS_DIR' folder not found, skipping uploading it to R2."
-          fi
-
-      - name: Check /github/workspace/r8analysis
+      - name: Check ${{ env.GH_WS_R8PATH }}
         continue-on-error: true
         timeout-minutes: 1
         if: always() && steps.run_R8_configuration_analyzer.outcome != 'skipped'
         run: |
           source .github/scripts/helpers.sh
-          check_folder ${{ github.workspace }}/r8analysis
-          check_folder /tmp/r8analysis
+          check_folder ${{ env.GH_WS_R8PATH }}
 
-      - name: Upload pb files as artifact
-        continue-on-error: true
-        timeout-minutes: 10
-        if: always() && steps.run_R8_configuration_analyzer.outcome != 'skipped'
-        run: |
-          find / \( -path /proc -o -path /sys \) -prune -o -type f \( -iname "*.pb" \) | zip pb-files2.zip -@
-
-      - name: Upload pb
+      - name: Check /tmp/r8analysis
         continue-on-error: true
         timeout-minutes: 1
         if: always() && steps.run_R8_configuration_analyzer.outcome != 'skipped'
-        uses: actions/upload-artifact@v7.0.1
-        with:
-          name: pb-files2
-          path: pb-files2.zip
-          retention-days: 1
+        run: |
+          source .github/scripts/helpers.sh
+          check_folder /tmp/r8analysis
 
       - name: Upload R8 Configuration Analyzer Report
         continue-on-error: true
@@ -1093,7 +1088,7 @@ jobs:
         uses: actions/upload-artifact@v7.0.1
         if: always() && steps.run_R8_configuration_analyzer.outcome != 'skipped'
         with:
-          name: r8-tmp-r8analysis_2
+          name: r8-tmp-r8analysis_gradle_stage
           path: '/tmp/r8analysis'
           retention-days: 1
 
@@ -1104,24 +1099,14 @@ jobs:
         uses: actions/upload-artifact@v7.0.1
         with:
           name: r8analysis_gh_workspace_3
-          path: '${{ github.workspace }}/r8analysis'
-          retention-days: 1
-
-      - name: Upload r8analysis2
-        continue-on-error: true
-        timeout-minutes: 1
-        if: always() && steps.run_R8_configuration_analyzer.outcome != 'skipped'
-        uses: actions/upload-artifact@v7.0.1
-        with:
-          name: r8analysis_gh_workspace_4
-          path: /github/workspace/r8analysis
+          path: '${{ env.GH_WS_R8PATH }}'
           retention-days: 1
 
       - name: Find r8analysis
         continue-on-error: true
         timeout-minutes: 20
         if: always() && steps.run_R8_configuration_analyzer.outcome != 'skipped'
-        run: find /github/workspace \( -iname "*r8analysis*" \) 2>/dev/null
+        run: find ${{ github.workspace }} \( -iname "*r8analysis*" \) 2>/dev/null
 
       - name: Find r8analysis
         continue-on-error: true
@@ -1140,12 +1125,6 @@ jobs:
         timeout-minutes: 20
         if: always() && steps.run_R8_configuration_analyzer.outcome != 'skipped'
         run: find / \( -path /proc -o -path /sys \) -prune -o \( -iname "*r8analysis*" \) -print 2>/dev/null
-
-      - name: Find soong
-        continue-on-error: true
-        timeout-minutes: 20
-        if: always() && steps.run_R8_configuration_analyzer.outcome != 'skipped'
-        run: find / \( -path /proc -o -path /sys \) -prune -o \( -iname "*soong*" \) -print 2>/dev/null
 
       - name: Final timestamp
         continue-on-error: true
