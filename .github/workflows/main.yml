@@ -205,6 +205,12 @@ jobs:
           df -h
           free -h || true
 
+      - name: Deps
+        timeout-minutes: 2
+        run: |
+          sudo apt update
+          sudo apt install -y p7zip-full
+
       #- name: Free Disk Space
       #  timeout-minutes: 6
       #  uses: jlumbroso/free-disk-space@v1.3.1
@@ -328,15 +334,17 @@ jobs:
           PROJECT_BUILD_VERSION=$(grep -oP 'bundleVersion:\s*\K[\d.]+' ProjectSettings/ProjectSettings.asset)
           PROJECT_ANDROID_CODE=$(grep -oP 'AndroidBundleVersionCode:\s*\K\d+' ProjectSettings/ProjectSettings.asset)
           #
-          echo "VERSION=$PROJECT_BUILD_VERSION" >> "$GITHUB_ENV"
-          echo "ANDROID_VERSION_CODE=$PROJECT_ANDROID_CODE" >> "$GITHUB_ENV"
+          echo "VERSION=$PROJECT_BUILD_VERSION"                                        >> "$GITHUB_ENV"
+          echo "ANDROID_VERSION_CODE=$PROJECT_ANDROID_CODE"                            >> "$GITHUB_ENV"
+          echo "VERSIONnMODE=${{ env.ANDROID_VERSION_CODE }}.${{ matrix.exportMode }}" >> "$GITHUB_ENV"
 
       - name: Show Final Using Versions
         timeout-minutes: 1
         run: |
-          echo "Final using VERSION: ${{ env.VERSION }}"
+          echo "Final using VERSION:              ${{ env.VERSION }}"
           echo "Final using ANDROID_VERSION_CODE: ${{ env.ANDROID_VERSION_CODE }}"
-          echo "Final using GRADLE_OPTS: ${{ env.GRADLE_OPTS }}"
+          echo "Final using GRADLE_OPTS:          ${{ env.GRADLE_OPTS }}"
+          echo "Final using VERSIONnMODE:         ${{ env.VERSIONnMODE }}"
 
       - name: 📈 Install sentry-cli
         timeout-minutes: 1
@@ -401,7 +409,7 @@ jobs:
       #    retention-days: 1
 
       - name: Upload Build to R2
-        timeout-minutes: 1
+        timeout-minutes: 5
         continue-on-error: true
         if: steps.buildStep.outcome != 'skipped'
         env:
@@ -412,15 +420,22 @@ jobs:
           R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
         run: |
           if [ -d "build/Android" ]; then
+            source .github/scripts/helpers.sh
             DIR="artifacts/build/Android"
             SRC="${DIR}/Android.${{ matrix.exportMode }}"
-            DEST="${DIR}/${{ env.ANDROID_VERSION_CODE }}.${{ matrix.exportMode }}"
+            DEST="${DIR}/${{ env.VERSIONnMODE }}"
             mkdir -p artifacts
             cp -r "build/" "artifacts/"
             mv "$SRC" "$DEST"
-            zst_file_name="${{ env.ANDROID_VERSION_CODE }}.${{ matrix.exportMode }}.tar.zst"
-            tar -I 'zstd -9' -cf "artifacts/$zst_file_name" "$DIR/"
-            aws s3 cp "artifacts/$zst_file_name" "s3://$R2_BUCKET/$zst_file_name" --endpoint-url $R2_ENDPOINT --quiet
+            #
+            archive_name="${{ env.VERSIONnMODE }}.7z"
+            compress_7z   "$DIR/" "artifacts/$archive_name" 9
+            time aws s3 cp "artifacts/$archive_name" "s3://$R2_BUCKET/$archive_name" --endpoint-url $R2_ENDPOINT --quiet
+            #
+            zst_file_name="${{ env.VERSIONnMODE }}.tar.zst"
+            compress_zstd "$DIR/" "artifacts/$archive_name" 19
+            time aws s3 cp "artifacts/$zst_file_name" "s3://$R2_BUCKET/$zst_file_name" --endpoint-url $R2_ENDPOINT --quiet
+            #
             rm -rf artifacts/
           else
             echo "'build/Android' folder not found, skipping '${{ matrix.exportMode }}' save."
@@ -443,7 +458,7 @@ jobs:
             RELEASE_NAME="game2048@${{ env.VERSION }}"
             #
             echo ""; echo "----- Creating Sentry release ($RELEASE_NAME) executed... -----"
-            sentry-cli releases new "$RELEASE_NAME" \
+            time sentry-cli releases new "$RELEASE_NAME" \
               --org "$SENTRY_ORG" \
               --project "$SENTRY_PROJECT" \
               #--finalize \
@@ -451,7 +466,7 @@ jobs:
             echo "----- Creating Sentry release ($RELEASE_NAME) completed -----"; echo ""
             #
             echo ""; echo "----- Uploading AAB to Sentry executed... -----"
-            sentry-cli build upload "$AAB_FILE" \
+            time sentry-cli build upload "$AAB_FILE" \
               --org "$SENTRY_ORG" \
               --project "$SENTRY_PROJECT" \
               --build-configuration Release \
@@ -483,7 +498,7 @@ jobs:
             MAPPING_FILE=$(find build -name "*mapping*" | head -n 1)
             if [ -n "$MAPPING_FILE" ]; then
               echo ""; echo "----- Uploading mapping to Sentry executed... -----"
-              find build -name "*mapping*" | xargs sentry-cli upload-proguard \
+              time find build -name "*mapping*" | xargs sentry-cli upload-proguard \
                 --org "$SENTRY_ORG" \
                 --project "$SENTRY_PROJECT" \
                 ${{ inputs.sentry_debug == true && '--log-level debug' || '' }}
@@ -508,7 +523,7 @@ jobs:
           AAB_FILE=$(find build -name "*.aab" | head -n 1)
           if [ -n "$AAB_FILE" ]; then
             echo ""; echo "----- Uploading symbol's files to Sentry executed... -----"
-            sentry-cli debug-files upload \
+            time sentry-cli debug-files upload \
               --org "$SENTRY_ORG" \
               --project "$SENTRY_PROJECT" \
               --il2cpp-mapping \
@@ -532,7 +547,7 @@ jobs:
           AAB_FILE=$(find build -name "*.aab" | head -n 1)
           if [ -n "$AAB_FILE" ]; then
             echo ""; echo "----- Uploading symbol's files to Sentry executed... -----"
-            sentry-cli debug-files upload \
+            time sentry-cli debug-files upload \
               --org "$SENTRY_ORG" \
               --project "$SENTRY_PROJECT" \
               --il2cpp-mapping \
@@ -742,12 +757,28 @@ jobs:
       - name: Upload Gradle Problems Report (main build)
         continue-on-error: true
         timeout-minutes: 1
-        uses: actions/upload-artifact@v7.0.1
-        if: always()
-        with:
-          name: ${{ env.ANDROID_VERSION_CODE }}.${{ matrix.exportMode }}/${{ env.ANDROID_VERSION_CODE }}.${{ matrix.exportMode }}.Gradle_Problems_Report-main_build
-          path: './Library/Bee/Android/Prj/IL2CPP/Gradle/launcher/build/reports/'
-          retention-days: 1
+        if: always && steps.buildStep.outcome != 'skipped'
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-east-1
+          R2_BUCKET: ${{ secrets.R2_BUCKET_NAME }}
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+        run: |
+          REPORTS_DIR="Library/Bee/Android/Prj/IL2CPP/Gradle/launcher/build/reports/"
+          if [ -d "$REPORTS_DIR" ]; then
+            source .github/scripts/helpers.sh
+            #
+            archive_name="${{ env.VERSIONnMODE }}.Gradle_Problems_Report-main_build.7z"
+            compress_7z "$REPORTS_DIR/" "$archive_name" 9
+            time aws s3 cp "$archive_name" "s3://$R2_BUCKET/${{ env.VERSIONnMODE }}/$archive_name" --endpoint-url $R2_ENDPOINT --quiet
+            #
+            zst_file_name="${{ env.VERSIONnMODE }}.Gradle_Problems_Report-main_build.tar.zst"
+            compress_zstd "$REPORTS_DIR/" "$zst_file_name" 19
+            time aws s3 cp "$zst_file_name" "s3://$R2_BUCKET/${{ env.VERSIONnMODE }}/$zst_file_name" --endpoint-url $R2_ENDPOINT --quiet
+          else
+            echo "'$REPORTS_DIR' folder not found, skipping uploading it to R2."
+          fi
 
       - name: Revert `ProjectSettings/ProjectSettings.asset`
         timeout-minutes: 1
@@ -796,8 +827,8 @@ jobs:
         if: always() && steps.buildStep.outcome != 'skipped'
         run: |
           latestGradle="9.5.1"
-          wget -q "https://services.gradle.org/distributions/gradle-$latestGradle-bin.zip" -O "/tmp/gradle-$latestGradle-bin.zip"
-          unzip -q "/tmp/gradle-$latestGradle-bin.zip" -d /tmp/
+          time wget -q "https://services.gradle.org/distributions/gradle-$latestGradle-bin.zip" -O "/tmp/gradle-$latestGradle-bin.zip"
+          time unzip -q "/tmp/gradle-$latestGradle-bin.zip" -d /tmp/
           #
           source .github/scripts/helpers.sh
           check_folder "/tmp/gradle-$latestGradle/bin/"
@@ -932,7 +963,7 @@ jobs:
           echo "====================================================="
           #
           cd ${{ env.GRADLE_PROJECT }}
-          ${{ env.GRADLE_BIN }} :launcher:analyzeReleaseR8Config --no-daemon
+          time ${{ env.GRADLE_BIN }} :launcher:analyzeReleaseR8Config --no-daemon
 
       - name: Post 'R8 Configuration Analyzer' info
         timeout-minutes: 1
@@ -948,12 +979,28 @@ jobs:
       - name: Upload R8 Configuration Analyzer Report
         continue-on-error: true
         timeout-minutes: 1
-        uses: actions/upload-artifact@v7.0.1
         if: always() && steps.run_R8_configuration_analyzer.outcome != 'skipped'
-        with:
-          name: ${{ env.ANDROID_VERSION_CODE }}.${{ matrix.exportMode }}/${{ env.ANDROID_VERSION_CODE }}.${{ matrix.exportMode }}.R8_Configuration_Analyzer_Report
-          path: './Library/Bee/Android/Prj/IL2CPP/Gradle/launcher/build/reports/'
-          retention-days: 1
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-east-1
+          R2_BUCKET: ${{ secrets.R2_BUCKET_NAME }}
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+        run: |
+          REPORTS_DIR="Library/Bee/Android/Prj/IL2CPP/Gradle/launcher/build/reports/"
+          if [ -d "$REPORTS_DIR" ]; then
+            source .github/scripts/helpers.sh
+            #
+            archive_name="${{ env.VERSIONnMODE }}.R8_Configuration_Analyzer_Report.7z"
+            compress_7z "$REPORTS_DIR/" "$archive_name" 9
+            time aws s3 cp "$archive_name" "s3://$R2_BUCKET/${{ env.VERSIONnMODE }}/$archive_name" --endpoint-url $R2_ENDPOINT --quiet
+            #
+            zst_file_name="${{ env.VERSIONnMODE }}.R8_Configuration_Analyzer_Report.tar.zst"
+            compress_zstd "$REPORTS_DIR/" "$zst_file_name" 19
+            time aws s3 cp "$zst_file_name" "s3://$R2_BUCKET/${{ env.VERSIONnMODE }}/$zst_file_name" --endpoint-url $R2_ENDPOINT --quiet
+          else
+            echo "'$REPORTS_DIR' folder not found, skipping uploading it to R2."
+          fi
 
       - name: Find R8 output
         continue-on-error: true
@@ -964,21 +1011,55 @@ jobs:
 
       - name: Upload R8 Configuration Analysis
         continue-on-error: true
+        timeout-minutes: 1
         if: always() && steps.run_R8_configuration_analyzer.outcome != 'skipped'
-        uses: actions/upload-artifact@v7.0.1
-        with:
-          name: r8-configuration-analysis_asd1
-          path: '${{ github.workspace }}/r8analysis'
-          retention-days: 1
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-east-1
+          R2_BUCKET: ${{ secrets.R2_BUCKET_NAME }}
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+        run: |
+          REPORTS_DIR="${{ github.workspace }}/r8analysis/"
+          if [ -d "$REPORTS_DIR" ]; then
+            source .github/scripts/helpers.sh
+            #
+            archive_name="${{ env.VERSIONnMODE }}.r8-configuration-analysis_asd1.7z"
+            compress_7z "$REPORTS_DIR/" "$archive_name" 9
+            time aws s3 cp "$archive_name" "s3://$R2_BUCKET/${{ env.VERSIONnMODE }}/$archive_name" --endpoint-url $R2_ENDPOINT --quiet
+            #
+            zst_file_name="${{ env.VERSIONnMODE }}.r8-configuration-analysis_asd1.tar.zst"
+            compress_zstd "$REPORTS_DIR/" "$zst_file_name" 19
+            time aws s3 cp "$zst_file_name" "s3://$R2_BUCKET/${{ env.VERSIONnMODE }}/$zst_file_name" --endpoint-url $R2_ENDPOINT --quiet
+          else
+            echo "'$REPORTS_DIR' folder not found, skipping uploading it to R2."
+          fi
 
       - name: Upload R8 Configuration Analysis
         continue-on-error: true
+        timeout-minutes: 1
         if: always() && steps.run_R8_configuration_analyzer.outcome != 'skipped'
-        uses: actions/upload-artifact@v7.0.1
-        with:
-          name: r8-configuration-analysis_asd2
-          path: '/home/runner/work/Card-Game-Simulator/Card-Game-Simulator/r8analysis'
-          retention-days: 1
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-east-1
+          R2_BUCKET: ${{ secrets.R2_BUCKET_NAME }}
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+        run: |
+          REPORTS_DIR="/home/runner/work/Card-Game-Simulator/Card-Game-Simulator/r8analysis/"
+          if [ -d "$REPORTS_DIR" ]; then
+            source .github/scripts/helpers.sh
+            #
+            archive_name="${{ env.VERSIONnMODE }}.r8-configuration-analysis_asd2.7z"
+            compress_7z "$REPORTS_DIR/" "$archive_name" 9
+            time aws s3 cp "$archive_name" "s3://$R2_BUCKET/${{ env.VERSIONnMODE }}/$archive_name" --endpoint-url $R2_ENDPOINT --quiet
+            #
+            zst_file_name="${{ env.VERSIONnMODE }}.r8-configuration-analysis_asd2.tar.zst"
+            compress_zstd "$REPORTS_DIR/" "$zst_file_name" 19
+            time aws s3 cp "$zst_file_name" "s3://$R2_BUCKET/${{ env.VERSIONnMODE }}/$zst_file_name" --endpoint-url $R2_ENDPOINT --quiet
+          else
+            echo "'$REPORTS_DIR' folder not found, skipping uploading it to R2."
+          fi
 
       - name: Check /github/workspace/r8analysis
         continue-on-error: true
