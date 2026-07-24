@@ -273,7 +273,6 @@ jobs:
       - name: Cache Library
         timeout-minutes: 3
         uses: actions/cache@v6.1.0
-        if: github.event_name != 'workflow_dispatch'
         with:
           path: Library
           key: Library-Android-${{ hashFiles('Packages/manifest.json', 'Packages/packages-lock.json', 'ProjectSettings/ProjectSettings.asset', 'ProjectSettings/ProjectVersion.txt', 'Assets/Settings/Build Profiles/Android_Release_APK.asset', 'Assets/Settings/Build Profiles/Android_Release_AAB.asset') }}-${{ matrix.exportMode == 'apk' && 'apk' || 'aab' }}${{ inputs.use_cached_library == true && '' || '-new' }}
@@ -792,6 +791,7 @@ jobs:
       #    find / -iname "build.gradle" 2>/dev/null
 
       - name: Setup latest Gradle
+        id: setup_latest_Gradle
         if: always() && steps.buildStep.outcome != 'skipped'
         run: |
           latestGradle="9.5.1"
@@ -807,7 +807,8 @@ jobs:
           echo "GRADLE_PROJECT=Library/Bee/Android/Prj/IL2CPP/Gradle" >> $GITHUB_ENV
 
       - name: Patch Gradle project for R8 Configuration Analyzer
-        if: always() && steps.buildStep.outcome == 'success'
+        id: patch_gradle_project_for_R8
+        if: always() && steps.setup_latest_Gradle.outcome == 'success'
         run: |
           source .github/scripts/helpers.sh
           #
@@ -841,7 +842,8 @@ jobs:
           check_folder ${{ github.workspace }}/r8analysis
 
       - name: Fix SDK/NDK paths for R8 analyzer
-        if: always() && steps.buildStep.outcome != 'skipped'
+        id: fix_sdk-ndk_paths_for_R8
+        if: always() && steps.patch_gradle_project_for_R8.outcome == 'success'
         run: |
           source .github/scripts/helpers.sh
           #
@@ -916,7 +918,8 @@ jobs:
           grep -A2 "maven" "${{ env.GRADLE_PROJECT }}/settings.gradle"
 
       - name: Run R8 Configuration Analyzer
-        if: always() && steps.buildStep.outcome != 'skipped'
+        id: run_R8_configuration_analyzer
+        if: always() && steps.ndk_paths_for_R8.outcome == 'success'
         run: |
           GRADLE_OPTS="-Dcom.android.tools.r8.dumpkeepradiushtmltodirectory=${{ github.workspace }}/r8analysis"
           echo "=== GRADLE_OPTS ==="
@@ -926,32 +929,23 @@ jobs:
           cd ${{ env.GRADLE_PROJECT }}
           ${{ env.GRADLE_BIN }} :launcher:analyzeReleaseR8Config --no-daemon
 
-      - name: Upload Gradle Problems Report (R8 analysis)
+      - name: Upload R8 Configuration Analyzer Report
         timeout-minutes: 1
         uses: actions/upload-artifact@v7.0.1
-        if: always()
+        if: always() && steps.run_R8_configuration_analyzer.outcome != 'skipped'
         with:
-          name: ${{ env.ANDROID_VERSION_CODE }}.${{ matrix.exportMode }}/${{ env.ANDROID_VERSION_CODE }}.${{ matrix.exportMode }}.Gradle_Problems_Report-r8_analysis
+          name: ${{ env.ANDROID_VERSION_CODE }}.${{ matrix.exportMode }}/${{ env.ANDROID_VERSION_CODE }}.${{ matrix.exportMode }}.R8_Configuration_Analyzer_Report
           path: './Library/Bee/Android/Prj/IL2CPP/Gradle/launcher/build/reports/'
           retention-days: 1
 
       - name: Find R8 output
-        if: always()
+        if: always() && steps.run_R8_configuration_analyzer.outcome != 'skipped'
         run: |
           find ${{ github.workspace }}/r8analysis -type f 2>/dev/null || echo "r8analysis пуст"
           find ${{ env.GRADLE_PROJECT }} -name "*keepradius*" -o -name "*.pb" 2>/dev/null || true
 
-      - name: Upload R8 Configuration Analyzer Report
-        timeout-minutes: 1
-        uses: actions/upload-artifact@v7.0.1
-        if: always()
-        with:
-          name: r8-reports
-          path: './Library/Bee/Android/Prj/IL2CPP/Gradle/launcher/build/reports/'
-          retention-days: 1
-
       - name: Upload R8 Configuration Analysis
-        if: always() && steps.buildStep.outcome == 'success'
+        if: always() && steps.run_R8_configuration_analyzer.outcome != 'skipped'
         uses: actions/upload-artifact@v7.0.1
         with:
           name: r8-configuration-analysis_asd1
@@ -959,7 +953,7 @@ jobs:
           retention-days: 1
 
       - name: Upload R8 Configuration Analysis
-        if: always() && steps.buildStep.outcome == 'success'
+        if: always() && steps.run_R8_configuration_analyzer.outcome != 'skipped'
         uses: actions/upload-artifact@v7.0.1
         with:
           name: r8-configuration-analysis_asd2
@@ -968,7 +962,7 @@ jobs:
 
       - name: Check /github/workspace/r8analysis
         timeout-minutes: 1
-        if: always() && steps.buildStep.outcome != 'skipped'
+        if: always() && steps.run_R8_configuration_analyzer.outcome != 'skipped'
         run: |
           source .github/scripts/helpers.sh
           check_folder ${{ github.workspace }}/r8analysis
@@ -976,13 +970,13 @@ jobs:
 
       - name: Upload pb files as artifact
         timeout-minutes: 10
-        if: always() && steps.buildStep.outcome != 'skipped'
+        if: always() && steps.run_R8_configuration_analyzer.outcome != 'skipped'
         run: |
           find / \( -path /proc -o -path /sys \) -prune -o -type f \( -iname "*.pb" \) | zip pb-files2.zip -@
 
       - name: Upload pb
         timeout-minutes: 1
-        if: always() && steps.buildStep.outcome != 'skipped'
+        if: always() && steps.run_R8_configuration_analyzer.outcome != 'skipped'
         uses: actions/upload-artifact@v7.0.1
         with:
           name: pb-files2
@@ -992,7 +986,7 @@ jobs:
       - name: Upload R8 Configuration Analyzer Report
         timeout-minutes: 1
         uses: actions/upload-artifact@v7.0.1
-        if: always()
+        if: always() && steps.run_R8_configuration_analyzer.outcome != 'skipped'
         with:
           name: r8-tmp-r8analysis_2
           path: '/tmp/r8analysis'
@@ -1000,7 +994,7 @@ jobs:
 
       - name: Upload r8analysis
         timeout-minutes: 1
-        if: always() && steps.buildStep.outcome != 'skipped'
+        if: always() && steps.run_R8_configuration_analyzer.outcome != 'skipped'
         uses: actions/upload-artifact@v7.0.1
         with:
           name: r8analysis_gh_workspace_3
@@ -1009,7 +1003,7 @@ jobs:
 
       - name: Upload r8analysis2
         timeout-minutes: 1
-        if: always() && steps.buildStep.outcome != 'skipped'
+        if: always() && steps.run_R8_configuration_analyzer.outcome != 'skipped'
         uses: actions/upload-artifact@v7.0.1
         with:
           name: r8analysis_gh_workspace_4
@@ -1018,27 +1012,27 @@ jobs:
 
       - name: Find r8analysis
         timeout-minutes: 20
-        if: always()
+        if: always() && steps.run_R8_configuration_analyzer.outcome != 'skipped'
         run: find /github/workspace \( -iname "*r8analysis*" \) 2>/dev/null
 
       - name: Find r8analysis
         timeout-minutes: 20
-        if: always()
+        if: always() && steps.run_R8_configuration_analyzer.outcome != 'skipped'
         run: find /tmp \( -iname "*r8analysis*" \) 2>/dev/null
 
       - name: Find r8analysis
         timeout-minutes: 20
-        if: always()
+        if: always() && steps.run_R8_configuration_analyzer.outcome != 'skipped'
         run: find /root \( -iname "*r8analysis*" \) 2>/dev/null
 
       - name: Find r8analysis
         timeout-minutes: 20
-        if: always()
+        if: always() && steps.run_R8_configuration_analyzer.outcome != 'skipped'
         run: find / \( -path /proc -o -path /sys \) -prune -o \( -iname "*r8analysis*" \) -print 2>/dev/null
 
       - name: Find soong
         timeout-minutes: 20
-        if: always()
+        if: always() && steps.run_R8_configuration_analyzer.outcome != 'skipped'
         run: find / \( -path /proc -o -path /sys \) -prune -o \( -iname "*soong*" \) -print 2>/dev/null
 
       - name: Final timestamp
