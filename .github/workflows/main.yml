@@ -810,6 +810,9 @@ jobs:
         id: patch_gradle_project_for_R8
         if: always() && steps.setup_latest_Gradle.outcome == 'success'
         run: |
+          # Меняем владельца на runner
+          sudo chown -R runner:runner "${{ env.GRADLE_PROJECT }}"
+          #
           source .github/scripts/helpers.sh
           #
           # Обновляем Gradle до latest версии
@@ -848,9 +851,6 @@ jobs:
           source .github/scripts/helpers.sh
           #
           check_folder "${{ env.GRADLE_PROJECT }}/"
-          #
-          # Меняем владельца на runner
-          sudo chown -R runner:runner "${{ env.GRADLE_PROJECT }}"
           #
           # Исправляем SDK path
           cat_file "${{ env.GRADLE_PROJECT }}/local.properties"
