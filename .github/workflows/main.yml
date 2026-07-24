@@ -273,12 +273,12 @@ jobs:
       - name: Cache Library
         timeout-minutes: 3
         uses: actions/cache@v6.1.0
-        if: github.event_name != 'workflow_dispatch' || inputs.use_cached_library == true
+        if: github.event_name != 'workflow_dispatch'
         with:
           path: Library
-          key: Library-Android-${{ hashFiles('Packages/manifest.json', 'Packages/packages-lock.json', 'ProjectSettings/ProjectSettings.asset', 'ProjectSettings/ProjectVersion.txt', 'Assets/Settings/Build Profiles/Android_Release_APK.asset', 'Assets/Settings/Build Profiles/Android_Release_AAB.asset') }}-${{ matrix.exportMode == 'apk' && 'apk' || 'aab' }}
+          key: Library-Android-${{ hashFiles('Packages/manifest.json', 'Packages/packages-lock.json', 'ProjectSettings/ProjectSettings.asset', 'ProjectSettings/ProjectVersion.txt', 'Assets/Settings/Build Profiles/Android_Release_APK.asset', 'Assets/Settings/Build Profiles/Android_Release_AAB.asset') }}-${{ matrix.exportMode == 'apk' && 'apk' || 'aab' }}${{ inputs.use_cached_library == true && '' || '-new' }}
           restore-keys: |
-            Library-Android-${{ hashFiles('Packages/manifest.json', 'Packages/packages-lock.json', 'ProjectSettings/ProjectSettings.asset', 'ProjectSettings/ProjectVersion.txt', 'Assets/Settings/Build Profiles/Android_Release_APK.asset', 'Assets/Settings/Build Profiles/Android_Release_AAB.asset') }}-
+            Library-Android-${{ hashFiles('Packages/manifest.json', 'Packages/packages-lock.json', 'ProjectSettings/ProjectSettings.asset', 'ProjectSettings/ProjectVersion.txt', 'Assets/Settings/Build Profiles/Android_Release_APK.asset', 'Assets/Settings/Build Profiles/Android_Release_AAB.asset') }}-${{ inputs.use_cached_library == true && '' || '-dontusecache' }}
 
       - name: Extract Build Versions (File or Input)
         timeout-minutes: 1
@@ -365,7 +365,7 @@ jobs:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
           SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
-          GRADLE_OPTS: "-Dcom.android.tools.r8.dumpkeepradiushtmltodirectory=/github/workspace/r8analysis"
+          GRADLE_OPTS: '-Dcom.android.tools.r8.dumpkeepradiushtmltodirectory=/github/workspace/r8analysis'
           R8_DUMP_KEEP_RADIUS: 'true'
         with:
           targetPlatform: Android
@@ -401,149 +401,149 @@ jobs:
       #    name: cgs-Android-${{ matrix.exportMode }}-${{ env.ANDROID_VERSION_CODE }}
       #    retention-days: 1
 
-      #- name: Upload Build to R2
-      #  timeout-minutes: 1
-      #  continue-on-error: true
-      #  if: steps.buildStep.outcome != 'skipped'
-      #  env:
-      #    AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-      #    AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-      #    AWS_DEFAULT_REGION: us-east-1
-      #    R2_BUCKET: ${{ secrets.R2_BUCKET_NAME }}
-      #    R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
-      #  run: |
-      #    if [ -d "build/Android" ]; then
-      #      DIR="artifacts/build/Android"
-      #      SRC="${DIR}/Android.${{ matrix.exportMode }}"
-      #      DEST="${DIR}/${{ env.ANDROID_VERSION_CODE }}.${{ matrix.exportMode }}"
-      #      mkdir -p artifacts
-      #      cp -r "build/" "artifacts/"
-      #      mv "$SRC" "$DEST"
-      #      zst_file_name="${{ env.ANDROID_VERSION_CODE }}.${{ matrix.exportMode }}.tar.zst"
-      #      tar -I 'zstd -9' -cf "artifacts/$zst_file_name" "$DIR/"
-      #      aws s3 cp "artifacts/$zst_file_name" "s3://$R2_BUCKET/$zst_file_name" --endpoint-url $R2_ENDPOINT --quiet
-      #      rm -rf artifacts/
-      #    else
-      #      echo "'build/Android' folder not found, skipping '${{ matrix.exportMode }}' save."
-      #    fi
-      #
-      #- name: 📈 Upload AAB to Sentry for Size Tracking
-      #  timeout-minutes: 1
-      #  continue-on-error: true
-      #  if: steps.buildStep.outcome == 'success' && matrix.exportMode == 'aab'
-      #  env:
-      #    SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
-      #    SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
-      #    SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
-      #  run: |
-      #    AAB_FILE=$(find build -name "*.aab" | head -n 1)
-      #    if [ -n "$AAB_FILE" ]; then
-      #      echo "All '*.aab' files found:"
-      #      find build -name "*.aab"
-      #      echo "Using: $AAB_FILE"
-      #      RELEASE_NAME="game2048@${{ env.VERSION }}"
-      #      #
-      #      echo ""; echo "----- Creating Sentry release ($RELEASE_NAME) executed... -----"
-      #      sentry-cli releases new "$RELEASE_NAME" \
-      #        --org "$SENTRY_ORG" \
-      #        --project "$SENTRY_PROJECT" \
-      #        #--finalize \
-      #        ${{ inputs.sentry_debug == true && '--log-level debug' || '' }}
-      #      echo "----- Creating Sentry release ($RELEASE_NAME) completed -----"; echo ""
-      #      #
-      #      echo ""; echo "----- Uploading AAB to Sentry executed... -----"
-      #      sentry-cli build upload "$AAB_FILE" \
-      #        --org "$SENTRY_ORG" \
-      #        --project "$SENTRY_PROJECT" \
-      #        --build-configuration Release \
-      #        --head-sha "${{ github.sha }}" \
-      #        --head-repo-name "gal20040/2048" \
-      #        --vcs-provider github \
-      #        --force-git-metadata \
-      #        ${{ inputs.sentry_debug == true && '--log-level debug' || '' }}
-      #      echo "----- Uploading AAB to Sentry completed -----"; echo ""
-      #    else
-      #      echo "AAB file not found."
-      #      exit 1
-      #    fi
-      #
-      #- name: 📈 Upload '*mapping*' to Sentry
-      #  timeout-minutes: 1
-      #  continue-on-error: true
-      #  if: steps.buildStep.outcome == 'success' && matrix.exportMode == 'aab'
-      #  env:
-      #    SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
-      #    SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
-      #    SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
-      #  run: |
-      #    AAB_FILE=$(find build -name "*.aab" | head -n 1)
-      #    if [ -n "$AAB_FILE" ]; then
-      #      echo "All '*mapping*' files found:"
-      #      find build -name "*mapping*"
-      #      # Upload R8/ProGuard mapping if it exists
-      #      MAPPING_FILE=$(find build -name "*mapping*" | head -n 1)
-      #      if [ -n "$MAPPING_FILE" ]; then
-      #        echo ""; echo "----- Uploading mapping to Sentry executed... -----"
-      #        find build -name "*mapping*" | xargs sentry-cli upload-proguard \
-      #          --org "$SENTRY_ORG" \
-      #          --project "$SENTRY_PROJECT" \
-      #          ${{ inputs.sentry_debug == true && '--log-level debug' || '' }}
-      #        echo "----- Uploading mapping to Sentry completed -----"; echo ""
-      #      else
-      #        echo "No '*mapping*' found (minification may be disabled)"
-      #      fi
-      #    else
-      #      echo "AAB file not found."
-      #      exit 1
-      #    fi
-      #
-      #- name: 📈 Upload symbol's files to Sentry
-      #  timeout-minutes: 1
-      #  continue-on-error: true
-      #  if: steps.buildStep.outcome == 'success' && matrix.exportMode == 'aab'
-      #  env:
-      #    SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
-      #    SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
-      #    SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
-      #  run: |
-      #    AAB_FILE=$(find build -name "*.aab" | head -n 1)
-      #    if [ -n "$AAB_FILE" ]; then
-      #      echo ""; echo "----- Uploading symbol's files to Sentry executed... -----"
-      #      sentry-cli debug-files upload \
-      #        --org "$SENTRY_ORG" \
-      #        --project "$SENTRY_PROJECT" \
-      #        --il2cpp-mapping \
-      #        build/ \
-      #        ${{ inputs.sentry_debug == true && '--log-level debug' || '' }}
-      #      echo "----- Uploading symbol's files to Sentry completed -----"; echo ""
-      #    else
-      #      echo "AAB file not found."
-      #      exit 1
-      #    fi
-      #
-      #- name: 📈 Upload symbol's files to Sentry
-      #  timeout-minutes: 2
-      #  continue-on-error: true
-      #  if: steps.buildStep.outcome == 'success' && matrix.exportMode == 'aab'
-      #  env:
-      #    SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
-      #    SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
-      #    SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
-      #  run: |
-      #    AAB_FILE=$(find build -name "*.aab" | head -n 1)
-      #    if [ -n "$AAB_FILE" ]; then
-      #      echo ""; echo "----- Uploading symbol's files to Sentry executed... -----"
-      #      sentry-cli debug-files upload \
-      #        --org "$SENTRY_ORG" \
-      #        --project "$SENTRY_PROJECT" \
-      #        --il2cpp-mapping \
-      #        ./ \
-      #        ${{ inputs.sentry_debug == true && '--log-level debug' || '' }}
-      #      echo "----- Uploading symbol's files to Sentry completed -----"; echo ""
-      #    else
-      #      echo "AAB file not found."
-      #      exit 1
-      #    fi
+      - name: Upload Build to R2
+        timeout-minutes: 1
+        continue-on-error: true
+        if: steps.buildStep.outcome != 'skipped'
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-east-1
+          R2_BUCKET: ${{ secrets.R2_BUCKET_NAME }}
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+        run: |
+          if [ -d "build/Android" ]; then
+            DIR="artifacts/build/Android"
+            SRC="${DIR}/Android.${{ matrix.exportMode }}"
+            DEST="${DIR}/${{ env.ANDROID_VERSION_CODE }}.${{ matrix.exportMode }}"
+            mkdir -p artifacts
+            cp -r "build/" "artifacts/"
+            mv "$SRC" "$DEST"
+            zst_file_name="${{ env.ANDROID_VERSION_CODE }}.${{ matrix.exportMode }}.tar.zst"
+            tar -I 'zstd -9' -cf "artifacts/$zst_file_name" "$DIR/"
+            aws s3 cp "artifacts/$zst_file_name" "s3://$R2_BUCKET/$zst_file_name" --endpoint-url $R2_ENDPOINT --quiet
+            rm -rf artifacts/
+          else
+            echo "'build/Android' folder not found, skipping '${{ matrix.exportMode }}' save."
+          fi
+
+      - name: 📈 Upload AAB to Sentry for Size Tracking
+        timeout-minutes: 1
+        continue-on-error: true
+        if: steps.buildStep.outcome == 'success' && matrix.exportMode == 'aab'
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+        run: |
+          AAB_FILE=$(find build -name "*.aab" | head -n 1)
+          if [ -n "$AAB_FILE" ]; then
+            echo "All '*.aab' files found:"
+            find build -name "*.aab"
+            echo "Using: $AAB_FILE"
+            RELEASE_NAME="game2048@${{ env.VERSION }}"
+            #
+            echo ""; echo "----- Creating Sentry release ($RELEASE_NAME) executed... -----"
+            sentry-cli releases new "$RELEASE_NAME" \
+              --org "$SENTRY_ORG" \
+              --project "$SENTRY_PROJECT" \
+              #--finalize \
+              ${{ inputs.sentry_debug == true && '--log-level debug' || '' }}
+            echo "----- Creating Sentry release ($RELEASE_NAME) completed -----"; echo ""
+            #
+            echo ""; echo "----- Uploading AAB to Sentry executed... -----"
+            sentry-cli build upload "$AAB_FILE" \
+              --org "$SENTRY_ORG" \
+              --project "$SENTRY_PROJECT" \
+              --build-configuration Release \
+              --head-sha "${{ github.sha }}" \
+              --head-repo-name "gal20040/2048" \
+              --vcs-provider github \
+              --force-git-metadata \
+              ${{ inputs.sentry_debug == true && '--log-level debug' || '' }}
+            echo "----- Uploading AAB to Sentry completed -----"; echo ""
+          else
+            echo "AAB file not found."
+            exit 1
+          fi
+
+      - name: 📈 Upload '*mapping*' to Sentry
+        timeout-minutes: 1
+        continue-on-error: true
+        if: steps.buildStep.outcome == 'success' && matrix.exportMode == 'aab'
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+        run: |
+          AAB_FILE=$(find build -name "*.aab" | head -n 1)
+          if [ -n "$AAB_FILE" ]; then
+            echo "All '*mapping*' files found:"
+            find build -name "*mapping*"
+            # Upload R8/ProGuard mapping if it exists
+            MAPPING_FILE=$(find build -name "*mapping*" | head -n 1)
+            if [ -n "$MAPPING_FILE" ]; then
+              echo ""; echo "----- Uploading mapping to Sentry executed... -----"
+              find build -name "*mapping*" | xargs sentry-cli upload-proguard \
+                --org "$SENTRY_ORG" \
+                --project "$SENTRY_PROJECT" \
+                ${{ inputs.sentry_debug == true && '--log-level debug' || '' }}
+              echo "----- Uploading mapping to Sentry completed -----"; echo ""
+            else
+              echo "No '*mapping*' found (minification may be disabled)"
+            fi
+          else
+            echo "AAB file not found."
+            exit 1
+          fi
+
+      - name: 📈 Upload symbol's files to Sentry
+        timeout-minutes: 1
+        continue-on-error: true
+        if: steps.buildStep.outcome == 'success' && matrix.exportMode == 'aab'
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+        run: |
+          AAB_FILE=$(find build -name "*.aab" | head -n 1)
+          if [ -n "$AAB_FILE" ]; then
+            echo ""; echo "----- Uploading symbol's files to Sentry executed... -----"
+            sentry-cli debug-files upload \
+              --org "$SENTRY_ORG" \
+              --project "$SENTRY_PROJECT" \
+              --il2cpp-mapping \
+              build/ \
+              ${{ inputs.sentry_debug == true && '--log-level debug' || '' }}
+            echo "----- Uploading symbol's files to Sentry completed -----"; echo ""
+          else
+            echo "AAB file not found."
+            exit 1
+          fi
+
+      - name: 📈 Upload symbol's files to Sentry
+        timeout-minutes: 2
+        continue-on-error: true
+        if: steps.buildStep.outcome == 'success' && matrix.exportMode == 'aab'
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+        run: |
+          AAB_FILE=$(find build -name "*.aab" | head -n 1)
+          if [ -n "$AAB_FILE" ]; then
+            echo ""; echo "----- Uploading symbol's files to Sentry executed... -----"
+            sentry-cli debug-files upload \
+              --org "$SENTRY_ORG" \
+              --project "$SENTRY_PROJECT" \
+              --il2cpp-mapping \
+              ./ \
+              ${{ inputs.sentry_debug == true && '--log-level debug' || '' }}
+            echo "----- Uploading symbol's files to Sentry completed -----"; echo ""
+          else
+            echo "AAB file not found."
+            exit 1
+          fi
 
       - name: Post android build info
         timeout-minutes: 1
@@ -740,6 +740,15 @@ jobs:
       #    path: /github/workspace/r8analysis
       #    retention-days: 1
 
+      - name: Upload Gradle Problems Report (main build)
+        timeout-minutes: 1
+        uses: actions/upload-artifact@v7.0.1
+        if: always()
+        with:
+          name: ${{ env.ANDROID_VERSION_CODE }}.${{ matrix.exportMode }}/${{ env.ANDROID_VERSION_CODE }}.${{ matrix.exportMode }}.Gradle_Problems_Report-main_build
+          path: './Library/Bee/Android/Prj/IL2CPP/Gradle/launcher/build/reports/'
+          retention-days: 1
+
       - name: Revert `ProjectSettings/ProjectSettings.asset`
         timeout-minutes: 1
         continue-on-error: true
@@ -782,15 +791,19 @@ jobs:
       #    find / -iname "gradlew" 2>/dev/null
       #    find / -iname "build.gradle" 2>/dev/null
 
-      - name: Setup Gradle 9.5.1
+      - name: Setup latest Gradle
         if: always() && steps.buildStep.outcome != 'skipped'
         run: |
-          wget -q https://services.gradle.org/distributions/gradle-9.5.1-bin.zip -O /tmp/gradle-9.5.1-bin.zip
-          unzip -q /tmp/gradle-9.5.1-bin.zip -d /tmp/
+          latestGradle="9.5.1"
+          wget -q "https://services.gradle.org/distributions/gradle-$latestGradle-bin.zip" -O "/tmp/gradle-$latestGradle-bin.zip"
+          unzip -q "/tmp/gradle-$latestGradle-bin.zip" -d /tmp/
+          #
           source .github/scripts/helpers.sh
-          check_folder /tmp/gradle-9.5.1/bin/
-          check_file   /tmp/gradle-9.5.1/bin/gradle
-          echo "GRADLE_BIN=/tmp/gradle-9.5.1/bin/gradle"              >> $GITHUB_ENV
+          check_folder "/tmp/gradle-$latestGradle/bin/"
+          check_file   "/tmp/gradle-$latestGradle/bin/gradle"
+          #
+          echo "LATEST_GRADLE=$latestGradle"                          >> $GITHUB_ENV
+          echo "GRADLE_BIN=/tmp/gradle-$latestGradle/bin/gradle"      >> $GITHUB_ENV
           echo "GRADLE_PROJECT=Library/Bee/Android/Prj/IL2CPP/Gradle" >> $GITHUB_ENV
 
       - name: Patch Gradle project for R8 Configuration Analyzer
@@ -798,12 +811,12 @@ jobs:
         run: |
           source .github/scripts/helpers.sh
           #
-          # Обновляем Gradle до 9.5.1
+          # Обновляем Gradle до latest версии
           check_folder  ${{ env.GRADLE_PROJECT }}
           check_folder "${{ env.GRADLE_PROJECT }}/gradle/"
           check_folder "${{ env.GRADLE_PROJECT }}/gradle/wrapper/"
           cat_file     "${{ env.GRADLE_PROJECT }}/gradle/wrapper/gradle-wrapper.properties"
-          sed -i 's|distributionUrl=.*|distributionUrl=https\\://services.gradle.org/distributions/gradle-9.5.1-bin.zip|' \
+          sed -i 's|distributionUrl=.*|distributionUrl=https\\://services.gradle.org/distributions/gradle-${{ env.LATEST_GRADLE }}-bin.zip|' \
             "${{ env.GRADLE_PROJECT }}/gradle/wrapper/gradle-wrapper.properties"
           cat_file "${{ env.GRADLE_PROJECT }}/gradle/wrapper/gradle-wrapper.properties"
           #
@@ -912,6 +925,15 @@ jobs:
           #
           cd ${{ env.GRADLE_PROJECT }}
           ${{ env.GRADLE_BIN }} :launcher:analyzeReleaseR8Config --no-daemon
+
+      - name: Upload Gradle Problems Report (R8 analysis)
+        timeout-minutes: 1
+        uses: actions/upload-artifact@v7.0.1
+        if: always()
+        with:
+          name: ${{ env.ANDROID_VERSION_CODE }}.${{ matrix.exportMode }}/${{ env.ANDROID_VERSION_CODE }}.${{ matrix.exportMode }}.Gradle_Problems_Report-r8_analysis
+          path: './Library/Bee/Android/Prj/IL2CPP/Gradle/launcher/build/reports/'
+          retention-days: 1
 
       - name: Find R8 output
         if: always()
