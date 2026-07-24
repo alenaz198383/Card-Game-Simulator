@@ -740,6 +740,7 @@ jobs:
       #    retention-days: 1
 
       - name: Upload Gradle Problems Report (main build)
+        continue-on-error: true
         timeout-minutes: 1
         uses: actions/upload-artifact@v7.0.1
         if: always()
@@ -750,7 +751,6 @@ jobs:
 
       - name: Revert `ProjectSettings/ProjectSettings.asset`
         timeout-minutes: 1
-        continue-on-error: true
         if: steps.buildStep.outcome == 'success'
         run: |
           DEST="ProjectSettings/ProjectSettings.asset"
@@ -791,6 +791,7 @@ jobs:
       #    find / -iname "build.gradle" 2>/dev/null
 
       - name: Setup latest Gradle
+        continue-on-error: true
         id: setup_latest_Gradle
         if: always() && steps.buildStep.outcome != 'skipped'
         run: |
@@ -807,6 +808,7 @@ jobs:
           echo "GRADLE_PROJECT=Library/Bee/Android/Prj/IL2CPP/Gradle" >> $GITHUB_ENV
 
       - name: Patch Gradle project for R8 Configuration Analyzer
+        continue-on-error: true
         id: patch_gradle_project_for_R8
         if: always() && steps.setup_latest_Gradle.outcome == 'success'
         run: |
@@ -845,6 +847,7 @@ jobs:
           check_folder ${{ github.workspace }}/r8analysis
 
       - name: Fix SDK/NDK paths for R8 analyzer
+        continue-on-error: true
         id: fix_sdk-ndk_paths_for_R8
         if: always() && steps.patch_gradle_project_for_R8.outcome == 'success'
         run: |
@@ -918,6 +921,7 @@ jobs:
           grep -A2 "maven" "${{ env.GRADLE_PROJECT }}/settings.gradle"
 
       - name: Run R8 Configuration Analyzer
+        continue-on-error: true
         id: run_R8_configuration_analyzer
         if: always() && steps.ndk_paths_for_R8.outcome == 'success'
         run: |
@@ -930,6 +934,7 @@ jobs:
           ${{ env.GRADLE_BIN }} :launcher:analyzeReleaseR8Config --no-daemon
 
       - name: Upload R8 Configuration Analyzer Report
+        continue-on-error: true
         timeout-minutes: 1
         uses: actions/upload-artifact@v7.0.1
         if: always() && steps.run_R8_configuration_analyzer.outcome != 'skipped'
@@ -939,12 +944,14 @@ jobs:
           retention-days: 1
 
       - name: Find R8 output
+        continue-on-error: true
         if: always() && steps.run_R8_configuration_analyzer.outcome != 'skipped'
         run: |
           find ${{ github.workspace }}/r8analysis -type f 2>/dev/null || echo "r8analysis пуст"
           find ${{ env.GRADLE_PROJECT }} -name "*keepradius*" -o -name "*.pb" 2>/dev/null || true
 
       - name: Upload R8 Configuration Analysis
+        continue-on-error: true
         if: always() && steps.run_R8_configuration_analyzer.outcome != 'skipped'
         uses: actions/upload-artifact@v7.0.1
         with:
@@ -953,6 +960,7 @@ jobs:
           retention-days: 1
 
       - name: Upload R8 Configuration Analysis
+        continue-on-error: true
         if: always() && steps.run_R8_configuration_analyzer.outcome != 'skipped'
         uses: actions/upload-artifact@v7.0.1
         with:
@@ -961,6 +969,7 @@ jobs:
           retention-days: 1
 
       - name: Check /github/workspace/r8analysis
+        continue-on-error: true
         timeout-minutes: 1
         if: always() && steps.run_R8_configuration_analyzer.outcome != 'skipped'
         run: |
@@ -969,12 +978,14 @@ jobs:
           check_folder /tmp/r8analysis
 
       - name: Upload pb files as artifact
+        continue-on-error: true
         timeout-minutes: 10
         if: always() && steps.run_R8_configuration_analyzer.outcome != 'skipped'
         run: |
           find / \( -path /proc -o -path /sys \) -prune -o -type f \( -iname "*.pb" \) | zip pb-files2.zip -@
 
       - name: Upload pb
+        continue-on-error: true
         timeout-minutes: 1
         if: always() && steps.run_R8_configuration_analyzer.outcome != 'skipped'
         uses: actions/upload-artifact@v7.0.1
@@ -984,6 +995,7 @@ jobs:
           retention-days: 1
 
       - name: Upload R8 Configuration Analyzer Report
+        continue-on-error: true
         timeout-minutes: 1
         uses: actions/upload-artifact@v7.0.1
         if: always() && steps.run_R8_configuration_analyzer.outcome != 'skipped'
@@ -993,6 +1005,7 @@ jobs:
           retention-days: 1
 
       - name: Upload r8analysis
+        continue-on-error: true
         timeout-minutes: 1
         if: always() && steps.run_R8_configuration_analyzer.outcome != 'skipped'
         uses: actions/upload-artifact@v7.0.1
@@ -1002,6 +1015,7 @@ jobs:
           retention-days: 1
 
       - name: Upload r8analysis2
+        continue-on-error: true
         timeout-minutes: 1
         if: always() && steps.run_R8_configuration_analyzer.outcome != 'skipped'
         uses: actions/upload-artifact@v7.0.1
@@ -1011,26 +1025,31 @@ jobs:
           retention-days: 1
 
       - name: Find r8analysis
+        continue-on-error: true
         timeout-minutes: 20
         if: always() && steps.run_R8_configuration_analyzer.outcome != 'skipped'
         run: find /github/workspace \( -iname "*r8analysis*" \) 2>/dev/null
 
       - name: Find r8analysis
+        continue-on-error: true
         timeout-minutes: 20
         if: always() && steps.run_R8_configuration_analyzer.outcome != 'skipped'
         run: find /tmp \( -iname "*r8analysis*" \) 2>/dev/null
 
       - name: Find r8analysis
+        continue-on-error: true
         timeout-minutes: 20
         if: always() && steps.run_R8_configuration_analyzer.outcome != 'skipped'
         run: find /root \( -iname "*r8analysis*" \) 2>/dev/null
 
       - name: Find r8analysis
+        continue-on-error: true
         timeout-minutes: 20
         if: always() && steps.run_R8_configuration_analyzer.outcome != 'skipped'
         run: find / \( -path /proc -o -path /sys \) -prune -o \( -iname "*r8analysis*" \) -print 2>/dev/null
 
       - name: Find soong
+        continue-on-error: true
         timeout-minutes: 20
         if: always() && steps.run_R8_configuration_analyzer.outcome != 'skipped'
         run: find / \( -path /proc -o -path /sys \) -prune -o \( -iname "*soong*" \) -print 2>/dev/null
