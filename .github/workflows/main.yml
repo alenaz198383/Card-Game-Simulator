@@ -12,10 +12,8 @@ env:
   DOTNET_NOLOGO: true
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-  GH_WS_R8PATH_test1: ${{ github.workspace }}/r8analysis
-  GH_WS_R8PATH_test2: "${{ github.workspace }}/r8analysis"
-  GRADLE_OPTS_test1: "-Dcom.android.tools.r8.dumpkeepradiushtmltodirectory=/github/workspace/r8analysis"
-  GRADLE_OPTS_test2: "-Dcom.android.tools.r8.dumpkeepradiushtmltodirectory=${{ github.workspace }}/r8analysis"
+  GH_WS_R8PATH: ${{ github.workspace }}/r8analysis
+  GRADLE_OPTS: "-Dcom.android.tools.r8.dumpkeepradiushtmltodirectory=${{ github.workspace }}/r8analysis"
 on:
   release:
     types:
@@ -73,14 +71,6 @@ jobs:
     runs-on: ubuntu-latest
     # runs-on: self-hosted
     steps:
-      - name: Show Final Using Versions
-        timeout-minutes: 1
-        run: |
-          echo "GH_WS_R8PATH1:        ${{ env.GH_WS_R8PATH_test1 }}"
-          echo "GH_WS_R8PATH2:        ${{ env.GH_WS_R8PATH_test2 }}"
-          echo "GRADLE_OPTS_test1:    ${{ env.GRADLE_OPTS_test1 }}"
-          echo "GRADLE_OPTS_test2:    ${{ env.GRADLE_OPTS_test2 }}"
-
       - name: 🔑 Check Unity license
         timeout-minutes: 1
         id: checklicense
@@ -260,11 +250,8 @@ jobs:
           mkdir -p Assets/Plugins/Sentry/
           echo "$SENTRY_CLI_OPTIONS" > Assets/Plugins/Sentry/SentryCliOptions.asset
           #
-          gh_r8_path="${{ github.workspace }}/r8analysis"
-          mkdir -p $gh_r8_path
+          mkdir -p ${{ env.GH_WS_R8PATH }}
           mkdir -p /tmp/r8analysis
-          echo "GH_WS_R8PATH=$gh_r8_path"                                                     >> $GITHUB_ENV
-          echo "GRADLE_OPTS=-Dcom.android.tools.r8.dumpkeepradiushtmltodirectory=$gh_r8_path" >> $GITHUB_ENV
 
       #- name: Restore Library cache from R2
       # timeout-minutes: 1
@@ -360,10 +347,6 @@ jobs:
           echo "GRADLE_OPTS:          ${{ env.GRADLE_OPTS }}"
           echo "VERSIONnMODE:         ${{ env.VERSIONnMODE }}"
           echo "GH_WS_R8PATH:         ${{ env.GH_WS_R8PATH }}"
-          echo "GH_WS_R8PATH1:        ${{ env.GH_WS_R8PATH_test1 }}"
-          echo "GH_WS_R8PATH2:        ${{ env.GH_WS_R8PATH_test2 }}"
-          echo "GRADLE_OPTS_test1:    ${{ env.GRADLE_OPTS_test1 }}"
-          echo "GRADLE_OPTS_test2:    ${{ env.GRADLE_OPTS_test2 }}"
 
       - name: 📈 Install sentry-cli
         timeout-minutes: 1
