@@ -848,7 +848,7 @@ jobs:
 
       - name: Fix SDK/NDK paths for R8 analyzer
         continue-on-error: true
-        id: fix_sdk-ndk_paths_for_R8
+        id: fix_sdk_ndk_paths_for_R8
         if: always() && steps.patch_gradle_project_for_R8.outcome == 'success'
         run: |
           source .github/scripts/helpers.sh
@@ -919,11 +919,12 @@ jobs:
           #
           echo "=== settings.gradle maven repos ==="
           grep -A2 "maven" "${{ env.GRADLE_PROJECT }}/settings.gradle"
+          #echo "====================================================="
 
       - name: Run R8 Configuration Analyzer
         continue-on-error: true
         id: run_R8_configuration_analyzer
-        if: always() && steps.ndk_paths_for_R8.outcome == 'success'
+        if: always() && steps.fix_sdk_ndk_paths_for_R8.outcome == 'success'
         run: |
           GRADLE_OPTS="-Dcom.android.tools.r8.dumpkeepradiushtmltodirectory=${{ github.workspace }}/r8analysis"
           echo "=== GRADLE_OPTS ==="
@@ -932,6 +933,17 @@ jobs:
           #
           cd ${{ env.GRADLE_PROJECT }}
           ${{ env.GRADLE_BIN }} :launcher:analyzeReleaseR8Config --no-daemon
+
+      - name: Post 'R8 Configuration Analyzer' info
+        timeout-minutes: 1
+        continue-on-error: true
+        if: always()
+        run: |
+          echo "##### 'R8 Configuration Analyzer' Step Info" >> $GITHUB_STEP_SUMMARY
+          echo "- Setup latest Gradle: \`${{ steps.setup_latest_Gradle.outcome }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Patch Gradle project for R8 Configuration Analyzer: \`${{ steps.patch_gradle_project_for_R8.outcome }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Fix SDK/NDK paths for R8 analyzer: \`${{ steps.fix_sdk_ndk_paths_for_R8.outcome }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Run R8 Configuration Analyzer: \`${{ steps.run_R8_configuration_analyzer.outcome }}\`" >> $GITHUB_STEP_SUMMARY
 
       - name: Upload R8 Configuration Analyzer Report
         continue-on-error: true
