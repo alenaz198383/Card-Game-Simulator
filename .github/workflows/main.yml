@@ -1177,29 +1177,29 @@ jobs:
           compress_7z "$REPORTS_DIR" "$archive_name" 9
           time aws s3 cp "$archive_name" "s3://$R2_BUCKET/${{ env.VERSIONnMODE }}/$archive_name" --endpoint-url $R2_ENDPOINT --quiet
 
-      - name: Find r8analysis
-        continue-on-error: true
-        timeout-minutes: 20
-        if: always() && steps.run_R8_configuration_analyzer.outcome != 'skipped'
-        run: find ${{ github.workspace }} \( -iname "*r8analysis*" \) 2>/dev/null
-
-      - name: Find r8analysis
-        continue-on-error: true
-        timeout-minutes: 20
-        if: always() && steps.run_R8_configuration_analyzer.outcome != 'skipped'
-        run: find /tmp \( -iname "*r8analysis*" \) 2>/dev/null
-
-      - name: Find r8analysis
-        continue-on-error: true
-        timeout-minutes: 20
-        if: always() && steps.run_R8_configuration_analyzer.outcome != 'skipped'
-        run: find /root \( -iname "*r8analysis*" \) 2>/dev/null
-
-      - name: Find r8analysis
-        continue-on-error: true
-        timeout-minutes: 20
-        if: always() && steps.run_R8_configuration_analyzer.outcome != 'skipped'
-        run: find / \( -path /proc -o -path /sys \) -prune -o \( -iname "*r8analysis*" \) -print 2>/dev/null
+      #- name: Find r8analysis
+      #  continue-on-error: true
+      #  timeout-minutes: 20
+      #  if: always() && steps.run_R8_configuration_analyzer.outcome != 'skipped'
+      #  run: find ${{ github.workspace }} \( -iname "*r8analysis*" \) 2>/dev/null
+      #
+      #- name: Find r8analysis
+      #  continue-on-error: true
+      #  timeout-minutes: 20
+      #  if: always() && steps.run_R8_configuration_analyzer.outcome != 'skipped'
+      #  run: find /tmp \( -iname "*r8analysis*" \) 2>/dev/null
+      #
+      #- name: Find r8analysis
+      #  continue-on-error: true
+      #  timeout-minutes: 20
+      #  if: always() && steps.run_R8_configuration_analyzer.outcome != 'skipped'
+      #  run: find /root \( -iname "*r8analysis*" \) 2>/dev/null
+      #
+      #- name: Find r8analysis
+      #  continue-on-error: true
+      #  timeout-minutes: 20
+      #  if: always() && steps.run_R8_configuration_analyzer.outcome != 'skipped'
+      #  run: find / \( -path /proc -o -path /sys \) -prune -o \( -iname "*r8analysis*" \) -print 2>/dev/null
 
       - name: 🗜️ Upload Build to R2 (3)
         timeout-minutes: 20
@@ -1220,136 +1220,136 @@ jobs:
           source .github/scripts/helpers.sh
           DIR="artifacts/build/Android"
           #
-          7z_file_name="${{ env.VERSIONnMODE }}.3.7z"
-          compress_7z "$DIR" "artifacts/$7z_file_name" 3
-          echo "Uploading '$7z_file_name' to R2..."
-          time aws s3 cp "artifacts/$7z_file_name" "s3://$R2_BUCKET/${{ env.VERSIONnMODE }}/$7z_file_name" --endpoint-url $R2_ENDPOINT --quiet
+          archive_name="${{ env.VERSIONnMODE }}.3.7z"
+          compress_7z "$DIR" "artifacts/$archive_name" 3
+          echo "Uploading '$archive_name' to R2..."
+          time aws s3 cp "artifacts/$archive_name" "s3://$R2_BUCKET/${{ env.VERSIONnMODE }}/$archive_name" --endpoint-url $R2_ENDPOINT --quiet
           echo "Uploading completed."
 
-      - name: 🗜️ Upload Build to R2 (4)
-        timeout-minutes: 20
-        continue-on-error: true
-        if: steps.buildStep.outcome != 'skipped'
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: us-east-1
-          R2_BUCKET: ${{ secrets.R2_BUCKET_NAME }}
-          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
-        run: |
-          if [ ! -d "build/Android" ]; then
-            echo "'build/Android' folder not found, skipping '${{ matrix.exportMode }}' save."
-            exit 1
-          fi
-          #
-          source .github/scripts/helpers.sh
-          DIR="artifacts/build/Android"
-          #
-          7z_file_name="${{ env.VERSIONnMODE }}.4.7z"
-          compress_7z "$DIR" "artifacts/$7z_file_name" 4
-          echo "Uploading '$7z_file_name' to R2..."
-          time aws s3 cp "artifacts/$7z_file_name" "s3://$R2_BUCKET/${{ env.VERSIONnMODE }}/$7z_file_name" --endpoint-url $R2_ENDPOINT --quiet
-          echo "Uploading completed."
-
-      - name: 🗜️ Upload Build to R2 (5)
-        timeout-minutes: 20
-        continue-on-error: true
-        if: steps.buildStep.outcome != 'skipped'
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: us-east-1
-          R2_BUCKET: ${{ secrets.R2_BUCKET_NAME }}
-          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
-        run: |
-          if [ ! -d "build/Android" ]; then
-            echo "'build/Android' folder not found, skipping '${{ matrix.exportMode }}' save."
-            exit 1
-          fi
-          #
-          source .github/scripts/helpers.sh
-          DIR="artifacts/build/Android"
-          #
-          7z_file_name="${{ env.VERSIONnMODE }}.5.7z"
-          compress_7z "$DIR" "artifacts/$7z_file_name" 5
-          echo "Uploading '$7z_file_name' to R2..."
-          time aws s3 cp "artifacts/$7z_file_name" "s3://$R2_BUCKET/${{ env.VERSIONnMODE }}/$7z_file_name" --endpoint-url $R2_ENDPOINT --quiet
-          echo "Uploading completed."
-
-      - name: 🗜️ Upload Build to R2 (6)
-        timeout-minutes: 20
-        continue-on-error: true
-        if: steps.buildStep.outcome != 'skipped'
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: us-east-1
-          R2_BUCKET: ${{ secrets.R2_BUCKET_NAME }}
-          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
-        run: |
-          if [ ! -d "build/Android" ]; then
-            echo "'build/Android' folder not found, skipping '${{ matrix.exportMode }}' save."
-            exit 1
-          fi
-          #
-          source .github/scripts/helpers.sh
-          DIR="artifacts/build/Android"
-          #
-          7z_file_name="${{ env.VERSIONnMODE }}.6.7z"
-          compress_7z "$DIR" "artifacts/$7z_file_name" 6
-          echo "Uploading '$7z_file_name' to R2..."
-          time aws s3 cp "artifacts/$7z_file_name" "s3://$R2_BUCKET/${{ env.VERSIONnMODE }}/$7z_file_name" --endpoint-url $R2_ENDPOINT --quiet
-          echo "Uploading completed."
-
-      - name: 🗜️ Upload Build to R2 (7)
-        timeout-minutes: 20
-        continue-on-error: true
-        if: steps.buildStep.outcome != 'skipped'
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: us-east-1
-          R2_BUCKET: ${{ secrets.R2_BUCKET_NAME }}
-          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
-        run: |
-          if [ ! -d "build/Android" ]; then
-            echo "'build/Android' folder not found, skipping '${{ matrix.exportMode }}' save."
-            exit 1
-          fi
-          #
-          source .github/scripts/helpers.sh
-          DIR="artifacts/build/Android"
-          #
-          7z_file_name="${{ env.VERSIONnMODE }}.7.7z"
-          compress_7z "$DIR" "artifacts/$7z_file_name" 7
-          echo "Uploading '$7z_file_name' to R2..."
-          time aws s3 cp "artifacts/$7z_file_name" "s3://$R2_BUCKET/${{ env.VERSIONnMODE }}/$7z_file_name" --endpoint-url $R2_ENDPOINT --quiet
-          echo "Uploading completed."
-
-      - name: 🗜️ Upload Build to R2 (8)
-        timeout-minutes: 20
-        continue-on-error: true
-        if: steps.buildStep.outcome != 'skipped'
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: us-east-1
-          R2_BUCKET: ${{ secrets.R2_BUCKET_NAME }}
-          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
-        run: |
-          if [ ! -d "build/Android" ]; then
-            echo "'build/Android' folder not found, skipping '${{ matrix.exportMode }}' save."
-            exit 1
-          fi
-          #
-          source .github/scripts/helpers.sh
-          DIR="artifacts/build/Android"
-          #
-          7z_file_name="${{ env.VERSIONnMODE }}.8.7z"
-          compress_7z "$DIR" "artifacts/$7z_file_name" 8
-          echo "Uploading '$7z_file_name' to R2..."
-          time aws s3 cp "artifacts/$7z_file_name" "s3://$R2_BUCKET/${{ env.VERSIONnMODE }}/$7z_file_name" --endpoint-url $R2_ENDPOINT --quiet
-          echo "Uploading completed."
+      #- name: 🗜️ Upload Build to R2 (4)
+      #  timeout-minutes: 20
+      #  continue-on-error: true
+      #  if: steps.buildStep.outcome != 'skipped'
+      #  env:
+      #    AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      #    AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      #    AWS_DEFAULT_REGION: us-east-1
+      #    R2_BUCKET: ${{ secrets.R2_BUCKET_NAME }}
+      #    R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+      #  run: |
+      #    if [ ! -d "build/Android" ]; then
+      #      echo "'build/Android' folder not found, skipping '${{ matrix.exportMode }}' save."
+      #      exit 1
+      #    fi
+      #    #
+      #    source .github/scripts/helpers.sh
+      #    DIR="artifacts/build/Android"
+      #    #
+      #    7z_file_name="${{ env.VERSIONnMODE }}.4.7z"
+      #    compress_7z "$DIR" "artifacts/$7z_file_name" 4
+      #    echo "Uploading '$7z_file_name' to R2..."
+      #    time aws s3 cp "artifacts/$7z_file_name" "s3://$R2_BUCKET/${{ env.VERSIONnMODE }}/$7z_file_name" --endpoint-url $R2_ENDPOINT --quiet
+      #    echo "Uploading completed."
+      #
+      #- name: 🗜️ Upload Build to R2 (5)
+      #  timeout-minutes: 20
+      #  continue-on-error: true
+      #  if: steps.buildStep.outcome != 'skipped'
+      #  env:
+      #    AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      #    AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      #    AWS_DEFAULT_REGION: us-east-1
+      #    R2_BUCKET: ${{ secrets.R2_BUCKET_NAME }}
+      #    R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+      #  run: |
+      #    if [ ! -d "build/Android" ]; then
+      #      echo "'build/Android' folder not found, skipping '${{ matrix.exportMode }}' save."
+      #      exit 1
+      #    fi
+      #    #
+      #    source .github/scripts/helpers.sh
+      #    DIR="artifacts/build/Android"
+      #    #
+      #    7z_file_name="${{ env.VERSIONnMODE }}.5.7z"
+      #    compress_7z "$DIR" "artifacts/$7z_file_name" 5
+      #    echo "Uploading '$7z_file_name' to R2..."
+      #    time aws s3 cp "artifacts/$7z_file_name" "s3://$R2_BUCKET/${{ env.VERSIONnMODE }}/$7z_file_name" --endpoint-url $R2_ENDPOINT --quiet
+      #    echo "Uploading completed."
+      #
+      #- name: 🗜️ Upload Build to R2 (6)
+      #  timeout-minutes: 20
+      #  continue-on-error: true
+      #  if: steps.buildStep.outcome != 'skipped'
+      #  env:
+      #    AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      #    AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      #    AWS_DEFAULT_REGION: us-east-1
+      #    R2_BUCKET: ${{ secrets.R2_BUCKET_NAME }}
+      #    R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+      #  run: |
+      #    if [ ! -d "build/Android" ]; then
+      #      echo "'build/Android' folder not found, skipping '${{ matrix.exportMode }}' save."
+      #      exit 1
+      #    fi
+      #    #
+      #    source .github/scripts/helpers.sh
+      #    DIR="artifacts/build/Android"
+      #    #
+      #    7z_file_name="${{ env.VERSIONnMODE }}.6.7z"
+      #    compress_7z "$DIR" "artifacts/$7z_file_name" 6
+      #    echo "Uploading '$7z_file_name' to R2..."
+      #    time aws s3 cp "artifacts/$7z_file_name" "s3://$R2_BUCKET/${{ env.VERSIONnMODE }}/$7z_file_name" --endpoint-url $R2_ENDPOINT --quiet
+      #    echo "Uploading completed."
+      #
+      #- name: 🗜️ Upload Build to R2 (7)
+      #  timeout-minutes: 20
+      #  continue-on-error: true
+      #  if: steps.buildStep.outcome != 'skipped'
+      #  env:
+      #    AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      #    AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      #    AWS_DEFAULT_REGION: us-east-1
+      #    R2_BUCKET: ${{ secrets.R2_BUCKET_NAME }}
+      #    R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+      #  run: |
+      #    if [ ! -d "build/Android" ]; then
+      #      echo "'build/Android' folder not found, skipping '${{ matrix.exportMode }}' save."
+      #      exit 1
+      #    fi
+      #    #
+      #    source .github/scripts/helpers.sh
+      #    DIR="artifacts/build/Android"
+      #    #
+      #    7z_file_name="${{ env.VERSIONnMODE }}.7.7z"
+      #    compress_7z "$DIR" "artifacts/$7z_file_name" 7
+      #    echo "Uploading '$7z_file_name' to R2..."
+      #    time aws s3 cp "artifacts/$7z_file_name" "s3://$R2_BUCKET/${{ env.VERSIONnMODE }}/$7z_file_name" --endpoint-url $R2_ENDPOINT --quiet
+      #    echo "Uploading completed."
+      #
+      #- name: 🗜️ Upload Build to R2 (8)
+      #  timeout-minutes: 20
+      #  continue-on-error: true
+      #  if: steps.buildStep.outcome != 'skipped'
+      #  env:
+      #    AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      #    AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      #    AWS_DEFAULT_REGION: us-east-1
+      #    R2_BUCKET: ${{ secrets.R2_BUCKET_NAME }}
+      #    R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+      #  run: |
+      #    if [ ! -d "build/Android" ]; then
+      #      echo "'build/Android' folder not found, skipping '${{ matrix.exportMode }}' save."
+      #      exit 1
+      #    fi
+      #    #
+      #    source .github/scripts/helpers.sh
+      #    DIR="artifacts/build/Android"
+      #    #
+      #    7z_file_name="${{ env.VERSIONnMODE }}.8.7z"
+      #    compress_7z "$DIR" "artifacts/$7z_file_name" 8
+      #    echo "Uploading '$7z_file_name' to R2..."
+      #    time aws s3 cp "artifacts/$7z_file_name" "s3://$R2_BUCKET/${{ env.VERSIONnMODE }}/$7z_file_name" --endpoint-url $R2_ENDPOINT --quiet
+      #    echo "Uploading completed."
 
       - name: Final timestamp
         continue-on-error: true
