@@ -437,7 +437,7 @@ jobs:
         run: |
           if [ ! -d "build/Android" ]; then
             echo "'build/Android' folder not found, skipping '${{ matrix.exportMode }}' save."
-            return
+            exit 1
           fi
           #
           source .github/scripts/helpers.sh
@@ -600,7 +600,7 @@ jobs:
       ##  run: |
       ##    if [ ! -d "Library" ]; then
       ##      echo "Library folder not found, skipping cache save."
-      ##      return
+      ##      exit 1
       ##    fi
       ##    echo "Saving cache: $CACHE_KEY"
       ##    tar -I 'zstd -9' -cf Library.tar.zst Library
@@ -783,7 +783,7 @@ jobs:
           REPORTS_DIR="${{ env.GRADLE_REPORTS_FOLDER }}"
           if [ ! -d "$REPORTS_DIR" ]; then
             echo "'$REPORTS_DIR' folder not found, skipping uploading it to R2."
-            return
+            exit 1
           fi
           #
           source .github/scripts/helpers.sh
@@ -792,7 +792,7 @@ jobs:
           nonZeroFiles=$(find $REPORTS_DIR -type f -size +0 | wc -l)
           if [ "$nonZeroFiles" -le 0 ]; then
             echo "'$REPORTS_DIR' folder is empty, skipping uploading it to R2."
-            return
+            exit 1
           fi
           #
           archive_name="${{ env.VERSIONnMODE }}.Gradle_Problems_Report_main_stage.7z"
@@ -817,7 +817,7 @@ jobs:
           REPORTS_DIR="${{ env.TMP_R8_ANALYSIS_PATH }}"
           if [ ! -d "$REPORTS_DIR" ]; then
             echo "'$REPORTS_DIR' folder not found, skipping uploading it to R2."
-            return
+            exit 1
           fi
           #
           source .github/scripts/helpers.sh
@@ -826,7 +826,7 @@ jobs:
           nonZeroFiles=$(find $REPORTS_DIR -type f -size +0 | wc -l)
           if [ "$nonZeroFiles" -le 0 ]; then
             echo "'$REPORTS_DIR' folder is empty, skipping uploading it to R2."
-            return
+            exit 1
           fi
           #
           archive_name="${{ env.VERSIONnMODE }}.tmp_r8_main_stage.7z"
@@ -851,7 +851,7 @@ jobs:
           REPORTS_DIR="${{ env.GH_WS_R8PATH }}/"
           if [ ! -d "$REPORTS_DIR" ]; then
             echo "'$REPORTS_DIR' folder not found, skipping uploading it to R2."
-            return
+            exit 1
           fi
           #
           source .github/scripts/helpers.sh
@@ -860,7 +860,7 @@ jobs:
           nonZeroFiles=$(find $REPORTS_DIR -type f -size +0 | wc -l)
           if [ "$nonZeroFiles" -le 0 ]; then
             echo "'$REPORTS_DIR' folder is empty, skipping uploading it to R2."
-            return
+            exit 1
           fi
           #
           archive_name="${{ env.VERSIONnMODE }}.gh_ws_r8_main_stage.7z"
@@ -1105,7 +1105,7 @@ jobs:
           REPORTS_DIR="${{ env.GRADLE_REPORTS_FOLDER }}"
           if [ ! -d "$REPORTS_DIR" ]; then
             echo "'$REPORTS_DIR' folder not found, skipping uploading it to R2."
-            return
+            exit 1
           fi
           #
           source .github/scripts/helpers.sh
@@ -1114,7 +1114,7 @@ jobs:
           nonZeroFiles=$(find $REPORTS_DIR -type f -size +0 | wc -l)
           if [ "$nonZeroFiles" -le 0 ]; then
             echo "'$REPORTS_DIR' folder is empty, skipping uploading it to R2."
-            return
+            exit 1
           fi
           #
           archive_name="${{ env.VERSIONnMODE }}.R8_Configuration_Analyzer_Report.7z"
@@ -1139,7 +1139,7 @@ jobs:
           REPORTS_DIR="${{ env.GH_WS_R8PATH }}/"
           if [ ! -d "$REPORTS_DIR" ]; then
             echo "'$REPORTS_DIR' folder not found, skipping uploading it to R2."
-            return
+            exit 1
           fi
           #
           source .github/scripts/helpers.sh
@@ -1148,7 +1148,7 @@ jobs:
           nonZeroFiles=$(find $REPORTS_DIR -type f -size +0 | wc -l)
           if [ "$nonZeroFiles" -le 0 ]; then
             echo "'$REPORTS_DIR' folder is empty, skipping uploading it to R2."
-            return
+            exit 1
           fi
           #
           archive_name="${{ env.VERSIONnMODE }}.gh_ws_r8_gradle_stage.7z"
@@ -1167,7 +1167,7 @@ jobs:
           source .github/scripts/helpers.sh
           check_folder ${{ env.GH_WS_R8PATH }}
 
-      - name: 🗜️ Upload R8 Configuration Analyzer Report (main build)
+      - name: 🗜️ Upload R8 Configuration Analyzer Report (gradle stage)
         continue-on-error: true
         timeout-minutes: 1
         if: always() && steps.buildStep.outcome != 'skipped'
@@ -1181,7 +1181,7 @@ jobs:
           REPORTS_DIR="${{ env.TMP_R8_ANALYSIS_PATH }}"
           if [ ! -d "$REPORTS_DIR" ]; then
             echo "'$REPORTS_DIR' folder not found, skipping uploading it to R2."
-            return
+            exit 1
           fi
           #
           source .github/scripts/helpers.sh
@@ -1190,7 +1190,7 @@ jobs:
           nonZeroFiles=$(find $REPORTS_DIR -type f -size +0 | wc -l)
           if [ "$nonZeroFiles" -le 0 ]; then
             echo "'$REPORTS_DIR' folder is empty, skipping uploading it to R2."
-            return
+            exit 1
           fi
           #
           archive_name="${{ env.VERSIONnMODE }}.tmp_r8_gradle_stage.7z"
@@ -1247,8 +1247,10 @@ jobs:
         run: |
           if [ ! -d "build/Android" ]; then
             echo "'build/Android' folder not found, skipping '${{ matrix.exportMode }}' save."
-            return
+            exit 1
           fi
+          #
+          source .github/scripts/helpers.sh
           DIR="artifacts/build/Android"
           #
           zst_file_name="${{ env.VERSIONnMODE }}.11.tar.zst"
@@ -1270,8 +1272,10 @@ jobs:
         run: |
           if [ ! -d "build/Android" ]; then
             echo "'build/Android' folder not found, skipping '${{ matrix.exportMode }}' save."
-            return
+            exit 1
           fi
+          #
+          source .github/scripts/helpers.sh
           DIR="artifacts/build/Android"
           #
           zst_file_name="${{ env.VERSIONnMODE }}.13.tar.zst"
@@ -1293,8 +1297,10 @@ jobs:
         run: |
           if [ ! -d "build/Android" ]; then
             echo "'build/Android' folder not found, skipping '${{ matrix.exportMode }}' save."
-            return
+            exit 1
           fi
+          #
+          source .github/scripts/helpers.sh
           DIR="artifacts/build/Android"
           #
           zst_file_name="${{ env.VERSIONnMODE }}.15.tar.zst"
@@ -1316,8 +1322,10 @@ jobs:
         run: |
           if [ ! -d "build/Android" ]; then
             echo "'build/Android' folder not found, skipping '${{ matrix.exportMode }}' save."
-            return
+            exit 1
           fi
+          #
+          source .github/scripts/helpers.sh
           DIR="artifacts/build/Android"
           #
           zst_file_name="${{ env.VERSIONnMODE }}.17.tar.zst"
@@ -1339,8 +1347,10 @@ jobs:
         run: |
           if [ ! -d "build/Android" ]; then
             echo "'build/Android' folder not found, skipping '${{ matrix.exportMode }}' save."
-            return
+            exit 1
           fi
+          #
+          source .github/scripts/helpers.sh
           DIR="artifacts/build/Android"
           #
           zst_file_name="${{ env.VERSIONnMODE }}.19.tar.zst"
