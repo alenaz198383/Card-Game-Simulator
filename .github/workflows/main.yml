@@ -20,6 +20,7 @@ env:
   GRADLE_BIN_FOLDER_PATH: '/tmp/gradle/bin'
   GRADLE_BIN_PATH: '/tmp/gradle/bin/gradle'
   GRADLE_PROJECT: 'Library/Bee/Android/Prj/IL2CPP/Gradle'
+  GRADLE_REPORTS_FOLDER: 'Library/Bee/Android/Prj/IL2CPP/Gradle/launcher/build/reports/'
 on:
   release:
     types:
@@ -350,8 +351,8 @@ jobs:
         run: |
           echo "VERSION:                ${{ env.VERSION }}"
           echo "ANDROID_VERSION_CODE:   ${{ env.ANDROID_VERSION_CODE }}"
-          echo "GRADLE_OPTS:            ${{ env.GRADLE_OPTS }}"
           echo "VERSIONnMODE:           ${{ env.VERSIONnMODE }}"
+          echo "GRADLE_OPTS:            ${{ env.GRADLE_OPTS }}"
           echo "GH_WS_R8PATH:           ${{ env.GH_WS_R8PATH }}"
           echo "TMP_R8_ANALYSIS_PATH:   ${{ env.TMP_R8_ANALYSIS_PATH }}"
           echo "LATEST_GRADLE:          ${{ env.LATEST_GRADLE }}"
@@ -359,6 +360,7 @@ jobs:
           echo "GRADLE_BIN_FOLDER_PATH: ${{ env.GRADLE_BIN_FOLDER_PATH }}"
           echo "GRADLE_BIN_PATH:        ${{ env.GRADLE_BIN_PATH }}"
           echo "GRADLE_PROJECT:         ${{ env.GRADLE_PROJECT }}"
+          echo "GRADLE_REPORTS_FOLDER:  ${{ env.GRADLE_REPORTS_FOLDER }}"
 
       - name: 📈 Install sentry-cli
         timeout-minutes: 1
@@ -422,7 +424,7 @@ jobs:
       #    name: cgs-Android-${{ matrix.exportMode }}-${{ env.ANDROID_VERSION_CODE }}
       #    retention-days: 1
 
-      - name: 🗜️ Upload Build to R2
+      - name: 🗜️ Upload Build to R2 (zstd=9)
         timeout-minutes: 5
         continue-on-error: true
         if: steps.buildStep.outcome != 'skipped'
@@ -433,23 +435,26 @@ jobs:
           R2_BUCKET: ${{ secrets.R2_BUCKET_NAME }}
           R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
         run: |
-          if [ -d "build/Android" ]; then
-            source .github/scripts/helpers.sh
-            DIR="artifacts/build/Android"
-            SRC="${DIR}/Android.${{ matrix.exportMode }}"
-            DEST="${DIR}/${{ env.VERSIONnMODE }}"
-            mkdir -p artifacts
-            cp -r "build/" "artifacts/"
-            mv "$SRC" "$DEST"
-            #
-            zst_file_name="${{ env.VERSIONnMODE }}.tar.zst"
-            compress_zstd "$DIR" "artifacts/$zst_file_name" 9
-            time aws s3 cp "artifacts/$zst_file_name" "s3://$R2_BUCKET/${{ env.VERSIONnMODE }}/$zst_file_name" --endpoint-url $R2_ENDPOINT --quiet
-            #
-            rm -rf artifacts/
-          else
+          if [ ! -d "build/Android" ]; then
             echo "'build/Android' folder not found, skipping '${{ matrix.exportMode }}' save."
+            return
           fi
+          #
+          source .github/scripts/helpers.sh
+          DIR="artifacts/build/Android"
+          SRC="${DIR}/Android.${{ matrix.exportMode }}"
+          DEST="${DIR}/${{ env.VERSIONnMODE }}"
+          mkdir -p artifacts
+          cp -r "build/" "artifacts/"
+          mv "$SRC" "$DEST"
+          #
+          zst_file_name="${{ env.VERSIONnMODE }}.9.tar.zst"
+          compress_zstd "$DIR" "artifacts/$zst_file_name" 9
+          echo "Uploading '$zst_file_name' to R2..."
+          time aws s3 cp "artifacts/$zst_file_name" "s3://$R2_BUCKET/${{ env.VERSIONnMODE }}/$zst_file_name" --endpoint-url $R2_ENDPOINT --quiet
+          echo "Uploading completed."
+          #
+          #rm -rf artifacts/
 
       - name: 📈 Upload AAB to Sentry for Size Tracking
         timeout-minutes: 1
@@ -593,18 +598,18 @@ jobs:
       ##    R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
       ##    CACHE_KEY: Library-Android-${{ hashFiles('Packages/manifest.json', 'Packages/packages-lock.json', 'ProjectSettings/ProjectSettings.asset', 'ProjectSettings/ProjectVersion.txt', 'Assets/Settings/Build Profiles/Android_Release_APK.asset', 'Assets/Settings/Build Profiles/Android_Release_AAB.asset') }}
       ##  run: |
-      ##    if [ -d "Library" ]; then
-      ##      echo "Saving cache: $CACHE_KEY"
-      ##      tar -I 'zstd -9' -cf Library.tar.zst Library
-      ##      aws s3 cp Library.tar.zst "s3://$R2_BUCKET/$CACHE_KEY" --endpoint-url $R2_ENDPOINT --quiet
-      ##      echo "Cache saved successfully."
-      ##      source .github/scripts/helpers.sh
-      ##      check_folder ./
-      ##      check_folder "Library/"
-      ##      check_file   "Library.tar.zst"
-      ##    else
+      ##    if [ ! -d "Library" ]; then
       ##      echo "Library folder not found, skipping cache save."
+      ##      return
       ##    fi
+      ##    echo "Saving cache: $CACHE_KEY"
+      ##    tar -I 'zstd -9' -cf Library.tar.zst Library
+      ##    aws s3 cp Library.tar.zst "s3://$R2_BUCKET/$CACHE_KEY" --endpoint-url $R2_ENDPOINT --quiet
+      ##    echo "Cache saved successfully."
+      ##    source .github/scripts/helpers.sh
+      ##    check_folder ./
+      ##    check_folder "Library/"
+      ##    check_file   "Library.tar.zst"
       #
       #- name: Upload Gradle files as artifact
       #  timeout-minutes: 1
@@ -775,20 +780,28 @@ jobs:
           R2_BUCKET: ${{ secrets.R2_BUCKET_NAME }}
           R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
         run: |
-          REPORTS_DIR="Library/Bee/Android/Prj/IL2CPP/Gradle/launcher/build/reports/"
-          if [ -d "$REPORTS_DIR" ]; then
-            source .github/scripts/helpers.sh
-            #
-            archive_name="${{ env.VERSIONnMODE }}.Gradle_Problems_Report_main_stage.7z"
-            compress_7z "$REPORTS_DIR" "$archive_name" 9
-            time aws s3 cp "$archive_name" "s3://$R2_BUCKET/${{ env.VERSIONnMODE }}/$archive_name" --endpoint-url $R2_ENDPOINT --quiet
-            #
-            zst_file_name="${{ env.VERSIONnMODE }}.Gradle_Problems_Report_main_stage.tar.zst"
-            compress_zstd "$REPORTS_DIR" "$zst_file_name" 19
-            time aws s3 cp "$zst_file_name" "s3://$R2_BUCKET/${{ env.VERSIONnMODE }}/$zst_file_name" --endpoint-url $R2_ENDPOINT --quiet
-          else
+          REPORTS_DIR="${{ env.GRADLE_REPORTS_FOLDER }}"
+          if [ ! -d "$REPORTS_DIR" ]; then
             echo "'$REPORTS_DIR' folder not found, skipping uploading it to R2."
+            return
           fi
+          #
+          source .github/scripts/helpers.sh
+          check_folder $REPORTS_DIR
+          #
+          nonZeroFiles=$(find $REPORTS_DIR -type f -size +0 | wc -l)
+          if [ "$nonZeroFiles" -le 0 ]; then
+            echo "'$REPORTS_DIR' folder is empty, skipping uploading it to R2."
+            return
+          fi
+          #
+          archive_name="${{ env.VERSIONnMODE }}.Gradle_Problems_Report_main_stage.7z"
+          compress_7z "$REPORTS_DIR" "$archive_name" 9
+          time aws s3 cp "$archive_name" "s3://$R2_BUCKET/${{ env.VERSIONnMODE }}/$archive_name" --endpoint-url $R2_ENDPOINT --quiet
+          #
+          zst_file_name="${{ env.VERSIONnMODE }}.Gradle_Problems_Report_main_stage.tar.zst"
+          compress_zstd "$REPORTS_DIR" "$zst_file_name" 19
+          time aws s3 cp "$zst_file_name" "s3://$R2_BUCKET/${{ env.VERSIONnMODE }}/$zst_file_name" --endpoint-url $R2_ENDPOINT --quiet
 
       - name: 🗜️ Upload R8 Configuration Analyzer Report (main build)
         continue-on-error: true
@@ -802,19 +815,27 @@ jobs:
           R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
         run: |
           REPORTS_DIR="${{ env.TMP_R8_ANALYSIS_PATH }}"
-          if [ -d "$REPORTS_DIR" ]; then
-            source .github/scripts/helpers.sh
-            #
-            archive_name="${{ env.VERSIONnMODE }}.tmp_r8_main_stage.7z"
-            compress_7z "$REPORTS_DIR" "$archive_name" 9
-            time aws s3 cp "$archive_name" "s3://$R2_BUCKET/${{ env.VERSIONnMODE }}/$archive_name" --endpoint-url $R2_ENDPOINT --quiet
-            #
-            zst_file_name="${{ env.VERSIONnMODE }}.tmp_r8_main_stage.tar.zst"
-            compress_zstd "$REPORTS_DIR" "$zst_file_name" 19
-            time aws s3 cp "$zst_file_name" "s3://$R2_BUCKET/${{ env.VERSIONnMODE }}/$zst_file_name" --endpoint-url $R2_ENDPOINT --quiet
-          else
+          if [ ! -d "$REPORTS_DIR" ]; then
             echo "'$REPORTS_DIR' folder not found, skipping uploading it to R2."
+            return
           fi
+          #
+          source .github/scripts/helpers.sh
+          check_folder $REPORTS_DIR
+          #
+          nonZeroFiles=$(find $REPORTS_DIR -type f -size +0 | wc -l)
+          if [ "$nonZeroFiles" -le 0 ]; then
+            echo "'$REPORTS_DIR' folder is empty, skipping uploading it to R2."
+            return
+          fi
+          #
+          archive_name="${{ env.VERSIONnMODE }}.tmp_r8_main_stage.7z"
+          compress_7z "$REPORTS_DIR" "$archive_name" 9
+          time aws s3 cp "$archive_name" "s3://$R2_BUCKET/${{ env.VERSIONnMODE }}/$archive_name" --endpoint-url $R2_ENDPOINT --quiet
+          #
+          zst_file_name="${{ env.VERSIONnMODE }}.tmp_r8_main_stage.tar.zst"
+          compress_zstd "$REPORTS_DIR" "$zst_file_name" 19
+          time aws s3 cp "$zst_file_name" "s3://$R2_BUCKET/${{ env.VERSIONnMODE }}/$zst_file_name" --endpoint-url $R2_ENDPOINT --quiet
 
       - name: 🗜️ Upload R8 Configuration Analysis
         continue-on-error: true
@@ -828,19 +849,27 @@ jobs:
           R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
         run: |
           REPORTS_DIR="${{ env.GH_WS_R8PATH }}/"
-          if [ -d "$REPORTS_DIR" ]; then
-            source .github/scripts/helpers.sh
-            #
-            archive_name="${{ env.VERSIONnMODE }}.gh_ws_r8_main_stage.7z"
-            compress_7z "$REPORTS_DIR" "$archive_name" 9
-            time aws s3 cp "$archive_name" "s3://$R2_BUCKET/${{ env.VERSIONnMODE }}/$archive_name" --endpoint-url $R2_ENDPOINT --quiet
-            #
-            zst_file_name="${{ env.VERSIONnMODE }}.gh_ws_r8_main_stage.tar.zst"
-            compress_zstd "$REPORTS_DIR" "$zst_file_name" 19
-            time aws s3 cp "$zst_file_name" "s3://$R2_BUCKET/${{ env.VERSIONnMODE }}/$zst_file_name" --endpoint-url $R2_ENDPOINT --quiet
-          else
+          if [ ! -d "$REPORTS_DIR" ]; then
             echo "'$REPORTS_DIR' folder not found, skipping uploading it to R2."
+            return
           fi
+          #
+          source .github/scripts/helpers.sh
+          check_folder $REPORTS_DIR
+          #
+          nonZeroFiles=$(find $REPORTS_DIR -type f -size +0 | wc -l)
+          if [ "$nonZeroFiles" -le 0 ]; then
+            echo "'$REPORTS_DIR' folder is empty, skipping uploading it to R2."
+            return
+          fi
+          #
+          archive_name="${{ env.VERSIONnMODE }}.gh_ws_r8_main_stage.7z"
+          compress_7z "$REPORTS_DIR" "$archive_name" 9
+          time aws s3 cp "$archive_name" "s3://$R2_BUCKET/${{ env.VERSIONnMODE }}/$archive_name" --endpoint-url $R2_ENDPOINT --quiet
+          #
+          zst_file_name="${{ env.VERSIONnMODE }}.gh_ws_r8_main_stage.tar.zst"
+          compress_zstd "$REPORTS_DIR" "$zst_file_name" 19
+          time aws s3 cp "$zst_file_name" "s3://$R2_BUCKET/${{ env.VERSIONnMODE }}/$zst_file_name" --endpoint-url $R2_ENDPOINT --quiet
 
       - name: Revert `ProjectSettings/ProjectSettings.asset`
         timeout-minutes: 1
@@ -886,15 +915,36 @@ jobs:
           LATEST_GRADLE_URL: 'https://services.gradle.org/distributions/gradle-${{ env.LATEST_GRADLE }}-bin.zip'
           PATH_TO_SAVE_ZIP: '${{ env.GRADLE_FOLDER_PATH }}.zip'
         run: |
-          echo "Downloading '$LATEST_GRADLE_URL' to '$PATH_TO_SAVE_ZIP'..."
-          time wget  -q "$LATEST_GRADLE_URL" -O "$PATH_TO_SAVE_ZIP"
-          echo "Unziping '$PATH_TO_SAVE_ZIP' to '${{ env.GRADLE_FOLDER_PATH }}'..."
-          time unzip -q                         "$PATH_TO_SAVE_ZIP" -d /tmp/
-          #
           source .github/scripts/helpers.sh
+          #
+          echo "Downloading '$LATEST_GRADLE_URL' to '$PATH_TO_SAVE_ZIP'..."
+          time wget      -q "$LATEST_GRADLE_URL" -O "$PATH_TO_SAVE_ZIP"
+          #
+          check_folder "/tmp/"
+          check_file   "$PATH_TO_SAVE_ZIP"
+          #
+          echo "Unziping '$PATH_TO_SAVE_ZIP' to '${{ env.GRADLE_FOLDER_PATH }}'..."
+          time  unzip -q "$PATH_TO_SAVE_ZIP" -d /tmp/
+          #
+          check_folder "/tmp/"
+          check_folder "${{ env.GRADLE_FOLDER_PATH }}"
+          check_folder "${{ env.GRADLE_FOLDER_PATH }}-${{ env.LATEST_GRADLE }}"
+          if [ -d "${{ env.GRADLE_FOLDER_PATH }}-${{ env.LATEST_GRADLE }}" ]; then
+            mv "${{ env.GRADLE_FOLDER_PATH }}-${{ env.LATEST_GRADLE }}" \
+               "${{ env.GRADLE_FOLDER_PATH }}"
+            check_folder "${{ env.GRADLE_FOLDER_PATH }}"
+            check_folder "${{ env.GRADLE_FOLDER_PATH }}-${{ env.LATEST_GRADLE }}"
+          fi
+          #
+          check_folder "/tmp/"
           check_folder "${{ env.GRADLE_FOLDER_PATH }}"
           check_folder "${{ env.GRADLE_BIN_FOLDER_PATH }}"
           check_file   "${{ env.GRADLE_BIN_PATH }}"
+          #
+          if [ ! -f "${{ env.GRADLE_BIN_PATH }}" ]; then
+            echo "Нет файла '${{ env.GRADLE_BIN_PATH }}' - фейлим построение отчёта."
+            exit 1
+          fi
           #
           rm $PATH_TO_SAVE_ZIP
 
@@ -1052,20 +1102,28 @@ jobs:
           R2_BUCKET: ${{ secrets.R2_BUCKET_NAME }}
           R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
         run: |
-          REPORTS_DIR="Library/Bee/Android/Prj/IL2CPP/Gradle/launcher/build/reports/"
-          if [ -d "$REPORTS_DIR" ]; then
-            source .github/scripts/helpers.sh
-            #
-            archive_name="${{ env.VERSIONnMODE }}.R8_Configuration_Analyzer_Report.7z"
-            compress_7z "$REPORTS_DIR" "$archive_name" 9
-            time aws s3 cp "$archive_name" "s3://$R2_BUCKET/${{ env.VERSIONnMODE }}/$archive_name" --endpoint-url $R2_ENDPOINT --quiet
-            #
-            zst_file_name="${{ env.VERSIONnMODE }}.R8_Configuration_Analyzer_Report.tar.zst"
-            compress_zstd "$REPORTS_DIR" "$zst_file_name" 19
-            time aws s3 cp "$zst_file_name" "s3://$R2_BUCKET/${{ env.VERSIONnMODE }}/$zst_file_name" --endpoint-url $R2_ENDPOINT --quiet
-          else
+          REPORTS_DIR="${{ env.GRADLE_REPORTS_FOLDER }}"
+          if [ ! -d "$REPORTS_DIR" ]; then
             echo "'$REPORTS_DIR' folder not found, skipping uploading it to R2."
+            return
           fi
+          #
+          source .github/scripts/helpers.sh
+          check_folder $REPORTS_DIR
+          #
+          nonZeroFiles=$(find $REPORTS_DIR -type f -size +0 | wc -l)
+          if [ "$nonZeroFiles" -le 0 ]; then
+            echo "'$REPORTS_DIR' folder is empty, skipping uploading it to R2."
+            return
+          fi
+          #
+          archive_name="${{ env.VERSIONnMODE }}.R8_Configuration_Analyzer_Report.7z"
+          compress_7z "$REPORTS_DIR" "$archive_name" 9
+          time aws s3 cp "$archive_name" "s3://$R2_BUCKET/${{ env.VERSIONnMODE }}/$archive_name" --endpoint-url $R2_ENDPOINT --quiet
+          #
+          zst_file_name="${{ env.VERSIONnMODE }}.R8_Configuration_Analyzer_Report.tar.zst"
+          compress_zstd "$REPORTS_DIR" "$zst_file_name" 19
+          time aws s3 cp "$zst_file_name" "s3://$R2_BUCKET/${{ env.VERSIONnMODE }}/$zst_file_name" --endpoint-url $R2_ENDPOINT --quiet
 
       - name: 🗜️ Upload R8 Configuration Analysis
         continue-on-error: true
@@ -1079,19 +1137,27 @@ jobs:
           R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
         run: |
           REPORTS_DIR="${{ env.GH_WS_R8PATH }}/"
-          if [ -d "$REPORTS_DIR" ]; then
-            source .github/scripts/helpers.sh
-            #
-            archive_name="${{ env.VERSIONnMODE }}.gh_ws_r8_gradle_stage.7z"
-            compress_7z "$REPORTS_DIR" "$archive_name" 9
-            time aws s3 cp "$archive_name" "s3://$R2_BUCKET/${{ env.VERSIONnMODE }}/$archive_name" --endpoint-url $R2_ENDPOINT --quiet
-            #
-            zst_file_name="${{ env.VERSIONnMODE }}.gh_ws_r8_gradle_stage.tar.zst"
-            compress_zstd "$REPORTS_DIR" "$zst_file_name" 19
-            time aws s3 cp "$zst_file_name" "s3://$R2_BUCKET/${{ env.VERSIONnMODE }}/$zst_file_name" --endpoint-url $R2_ENDPOINT --quiet
-          else
+          if [ ! -d "$REPORTS_DIR" ]; then
             echo "'$REPORTS_DIR' folder not found, skipping uploading it to R2."
+            return
           fi
+          #
+          source .github/scripts/helpers.sh
+          check_folder $REPORTS_DIR
+          #
+          nonZeroFiles=$(find $REPORTS_DIR -type f -size +0 | wc -l)
+          if [ "$nonZeroFiles" -le 0 ]; then
+            echo "'$REPORTS_DIR' folder is empty, skipping uploading it to R2."
+            return
+          fi
+          #
+          archive_name="${{ env.VERSIONnMODE }}.gh_ws_r8_gradle_stage.7z"
+          compress_7z "$REPORTS_DIR" "$archive_name" 9
+          time aws s3 cp "$archive_name" "s3://$R2_BUCKET/${{ env.VERSIONnMODE }}/$archive_name" --endpoint-url $R2_ENDPOINT --quiet
+          #
+          zst_file_name="${{ env.VERSIONnMODE }}.gh_ws_r8_gradle_stage.tar.zst"
+          compress_zstd "$REPORTS_DIR" "$zst_file_name" 19
+          time aws s3 cp "$zst_file_name" "s3://$R2_BUCKET/${{ env.VERSIONnMODE }}/$zst_file_name" --endpoint-url $R2_ENDPOINT --quiet
 
       - name: Check ${{ env.GH_WS_R8PATH }}
         continue-on-error: true
@@ -1113,19 +1179,27 @@ jobs:
           R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
         run: |
           REPORTS_DIR="${{ env.TMP_R8_ANALYSIS_PATH }}"
-          if [ -d "$REPORTS_DIR" ]; then
-            source .github/scripts/helpers.sh
-            #
-            archive_name="${{ env.VERSIONnMODE }}.tmp_r8_gradle_stage.7z"
-            compress_7z "$REPORTS_DIR" "$archive_name" 9
-            time aws s3 cp "$archive_name" "s3://$R2_BUCKET/${{ env.VERSIONnMODE }}/$archive_name" --endpoint-url $R2_ENDPOINT --quiet
-            #
-            zst_file_name="${{ env.VERSIONnMODE }}.tmp_r8_gradle_stage.tar.zst"
-            compress_zstd "$REPORTS_DIR" "$zst_file_name" 19
-            time aws s3 cp "$zst_file_name" "s3://$R2_BUCKET/${{ env.VERSIONnMODE }}/$zst_file_name" --endpoint-url $R2_ENDPOINT --quiet
-          else
+          if [ ! -d "$REPORTS_DIR" ]; then
             echo "'$REPORTS_DIR' folder not found, skipping uploading it to R2."
+            return
           fi
+          #
+          source .github/scripts/helpers.sh
+          check_folder $REPORTS_DIR
+          #
+          nonZeroFiles=$(find $REPORTS_DIR -type f -size +0 | wc -l)
+          if [ "$nonZeroFiles" -le 0 ]; then
+            echo "'$REPORTS_DIR' folder is empty, skipping uploading it to R2."
+            return
+          fi
+          #
+          archive_name="${{ env.VERSIONnMODE }}.tmp_r8_gradle_stage.7z"
+          compress_7z "$REPORTS_DIR" "$archive_name" 9
+          time aws s3 cp "$archive_name" "s3://$R2_BUCKET/${{ env.VERSIONnMODE }}/$archive_name" --endpoint-url $R2_ENDPOINT --quiet
+          #
+          zst_file_name="${{ env.VERSIONnMODE }}.tmp_r8_gradle_stage.tar.zst"
+          compress_zstd "$REPORTS_DIR" "$zst_file_name" 19
+          time aws s3 cp "$zst_file_name" "s3://$R2_BUCKET/${{ env.VERSIONnMODE }}/$zst_file_name" --endpoint-url $R2_ENDPOINT --quiet
 
       - name: Find r8analysis
         continue-on-error: true
@@ -1150,6 +1224,130 @@ jobs:
         timeout-minutes: 20
         if: always() && steps.run_R8_configuration_analyzer.outcome != 'skipped'
         run: find / \( -path /proc -o -path /sys \) -prune -o \( -iname "*r8analysis*" \) -print 2>/dev/null
+
+      - name: PreFinal timestamp
+        continue-on-error: true
+        timeout-minutes: 1
+        if: ${{ always() }}
+        run: |
+          date -u
+          df -h
+          free -h || true
+
+      - name: 🗜️ Upload Build to R2 (zstd=11)
+        timeout-minutes: 10
+        continue-on-error: true
+        if: steps.buildStep.outcome != 'skipped'
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-east-1
+          R2_BUCKET: ${{ secrets.R2_BUCKET_NAME }}
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+        run: |
+          if [ ! -d "build/Android" ]; then
+            echo "'build/Android' folder not found, skipping '${{ matrix.exportMode }}' save."
+            return
+          fi
+          DIR="artifacts/build/Android"
+          #
+          zst_file_name="${{ env.VERSIONnMODE }}.11.tar.zst"
+          compress_zstd "$DIR" "artifacts/$zst_file_name" 11
+          echo "Uploading '$zst_file_name' to R2..."
+          time aws s3 cp "artifacts/$zst_file_name" "s3://$R2_BUCKET/${{ env.VERSIONnMODE }}/$zst_file_name" --endpoint-url $R2_ENDPOINT --quiet
+          echo "Uploading completed."
+
+      - name: 🗜️ Upload Build to R2 (zstd=13)
+        timeout-minutes: 10
+        continue-on-error: true
+        if: steps.buildStep.outcome != 'skipped'
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-east-1
+          R2_BUCKET: ${{ secrets.R2_BUCKET_NAME }}
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+        run: |
+          if [ ! -d "build/Android" ]; then
+            echo "'build/Android' folder not found, skipping '${{ matrix.exportMode }}' save."
+            return
+          fi
+          DIR="artifacts/build/Android"
+          #
+          zst_file_name="${{ env.VERSIONnMODE }}.13.tar.zst"
+          compress_zstd "$DIR" "artifacts/$zst_file_name" 13
+          echo "Uploading '$zst_file_name' to R2..."
+          time aws s3 cp "artifacts/$zst_file_name" "s3://$R2_BUCKET/${{ env.VERSIONnMODE }}/$zst_file_name" --endpoint-url $R2_ENDPOINT --quiet
+          echo "Uploading completed."
+
+      - name: 🗜️ Upload Build to R2 (zstd=15)
+        timeout-minutes: 10
+        continue-on-error: true
+        if: steps.buildStep.outcome != 'skipped'
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-east-1
+          R2_BUCKET: ${{ secrets.R2_BUCKET_NAME }}
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+        run: |
+          if [ ! -d "build/Android" ]; then
+            echo "'build/Android' folder not found, skipping '${{ matrix.exportMode }}' save."
+            return
+          fi
+          DIR="artifacts/build/Android"
+          #
+          zst_file_name="${{ env.VERSIONnMODE }}.15.tar.zst"
+          compress_zstd "$DIR" "artifacts/$zst_file_name" 15
+          echo "Uploading '$zst_file_name' to R2..."
+          time aws s3 cp "artifacts/$zst_file_name" "s3://$R2_BUCKET/${{ env.VERSIONnMODE }}/$zst_file_name" --endpoint-url $R2_ENDPOINT --quiet
+          echo "Uploading completed."
+
+      - name: 🗜️ Upload Build to R2 (zstd=17)
+        timeout-minutes: 20
+        continue-on-error: true
+        if: steps.buildStep.outcome != 'skipped'
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-east-1
+          R2_BUCKET: ${{ secrets.R2_BUCKET_NAME }}
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+        run: |
+          if [ ! -d "build/Android" ]; then
+            echo "'build/Android' folder not found, skipping '${{ matrix.exportMode }}' save."
+            return
+          fi
+          DIR="artifacts/build/Android"
+          #
+          zst_file_name="${{ env.VERSIONnMODE }}.17.tar.zst"
+          compress_zstd "$DIR" "artifacts/$zst_file_name" 17
+          echo "Uploading '$zst_file_name' to R2..."
+          time aws s3 cp "artifacts/$zst_file_name" "s3://$R2_BUCKET/${{ env.VERSIONnMODE }}/$zst_file_name" --endpoint-url $R2_ENDPOINT --quiet
+          echo "Uploading completed."
+
+      - name: 🗜️ Upload Build to R2 (zstd=19)
+        timeout-minutes: 20
+        continue-on-error: true
+        if: steps.buildStep.outcome != 'skipped'
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-east-1
+          R2_BUCKET: ${{ secrets.R2_BUCKET_NAME }}
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+        run: |
+          if [ ! -d "build/Android" ]; then
+            echo "'build/Android' folder not found, skipping '${{ matrix.exportMode }}' save."
+            return
+          fi
+          DIR="artifacts/build/Android"
+          #
+          zst_file_name="${{ env.VERSIONnMODE }}.19.tar.zst"
+          compress_zstd "$DIR" "artifacts/$zst_file_name" 19
+          echo "Uploading '$zst_file_name' to R2..."
+          time aws s3 cp "artifacts/$zst_file_name" "s3://$R2_BUCKET/${{ env.VERSIONnMODE }}/$zst_file_name" --endpoint-url $R2_ENDPOINT --quiet
+          echo "Uploading completed."
 
       - name: Final timestamp
         continue-on-error: true
