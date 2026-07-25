@@ -21,6 +21,7 @@ env:
   GRADLE_BIN_PATH: '/tmp/gradle/bin/gradle'
   GRADLE_PROJECT: 'Library/Bee/Android/Prj/IL2CPP/Gradle'
   GRADLE_REPORTS_FOLDER: 'Library/Bee/Android/Prj/IL2CPP/Gradle/launcher/build/reports/'
+  GRADLE_PROBLEM_REPORT_FOLDER: 'Library/Bee/Android/Prj/IL2CPP/Gradle/build/reports/' # + problems/problems-report.html
 on:
   release:
     types:
@@ -361,6 +362,7 @@ jobs:
           echo "GRADLE_BIN_PATH:        ${{ env.GRADLE_BIN_PATH }}"
           echo "GRADLE_PROJECT:         ${{ env.GRADLE_PROJECT }}"
           echo "GRADLE_REPORTS_FOLDER:  ${{ env.GRADLE_REPORTS_FOLDER }}"
+          echo "GRADLE_PROBLEM_REPORT_FOLDER: ${{ env.GRADLE_PROBLEM_REPORT_FOLDER }}"
 
       - name: 📈 Install sentry-cli
         timeout-minutes: 1
@@ -448,7 +450,7 @@ jobs:
           cp -r "build/" "artifacts/"
           mv "$SRC" "$DEST"
           #
-          zst_file_name="${{ env.VERSIONnMODE }}.9.tar.zst"
+          zst_file_name="${{ env.VERSIONnMODE }}.tar.zst"
           compress_zstd "$DIR" "artifacts/$zst_file_name" 9
           echo "Uploading '$zst_file_name' to R2..."
           time aws s3 cp "artifacts/$zst_file_name" "s3://$R2_BUCKET/${{ env.VERSIONnMODE }}/$zst_file_name" --endpoint-url $R2_ENDPOINT --quiet
@@ -780,10 +782,9 @@ jobs:
           R2_BUCKET: ${{ secrets.R2_BUCKET_NAME }}
           R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
         run: |
-          REPORTS_DIR="${{ env.GRADLE_REPORTS_FOLDER }}"
+          REPORTS_DIR="${{ env.GRADLE_PROBLEM_REPORT_FOLDER }}"
           if [ ! -d "$REPORTS_DIR" ]; then
             echo "'$REPORTS_DIR' folder not found, skipping uploading it to R2."
-            exit 1
           fi
           #
           source .github/scripts/helpers.sh
@@ -792,7 +793,6 @@ jobs:
           nonZeroFiles=$(find $REPORTS_DIR -type f -size +0 | wc -l)
           if [ "$nonZeroFiles" -le 0 ]; then
             echo "'$REPORTS_DIR' folder is empty, skipping uploading it to R2."
-            exit 1
           fi
           #
           archive_name="${{ env.VERSIONnMODE }}.Gradle_Problems_Report_main_stage.7z"
@@ -1079,6 +1079,34 @@ jobs:
           echo "- Fix SDK/NDK paths for R8 analyzer: \`${{ steps.fix_sdk_ndk_paths_for_R8.outcome }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- Run R8 Configuration Analyzer: \`${{ steps.run_R8_configuration_analyzer.outcome }}\`" >> $GITHUB_STEP_SUMMARY
 
+      - name: 🗜️ Upload Gradle Problems Report (gradle stage)
+        continue-on-error: true
+        timeout-minutes: 1
+        if: always() && steps.run_R8_configuration_analyzer.outcome != 'skipped'
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-east-1
+          R2_BUCKET: ${{ secrets.R2_BUCKET_NAME }}
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+        run: |
+          REPORTS_DIR="${{ env.GRADLE_PROBLEM_REPORT_FOLDER }}"
+          if [ ! -d "$REPORTS_DIR" ]; then
+            echo "'$REPORTS_DIR' folder not found, skipping uploading it to R2."
+          fi
+          #
+          source .github/scripts/helpers.sh
+          check_folder $REPORTS_DIR
+          #
+          nonZeroFiles=$(find $REPORTS_DIR -type f -size +0 | wc -l)
+          if [ "$nonZeroFiles" -le 0 ]; then
+            echo "'$REPORTS_DIR' folder is empty, skipping uploading it to R2."
+          fi
+          #
+          archive_name="${{ env.VERSIONnMODE }}.Gradle_Problems_Report_gradle_stage.7z"
+          compress_7z "$REPORTS_DIR" "$archive_name" 9
+          time aws s3 cp "$archive_name" "s3://$R2_BUCKET/${{ env.VERSIONnMODE }}/$archive_name" --endpoint-url $R2_ENDPOINT --quiet
+
       - name: 🗜️ Upload R8 Configuration Analyzer Report
         continue-on-error: true
         timeout-minutes: 1
@@ -1200,156 +1228,6 @@ jobs:
       #  timeout-minutes: 20
       #  if: always() && steps.run_R8_configuration_analyzer.outcome != 'skipped'
       #  run: find / \( -path /proc -o -path /sys \) -prune -o \( -iname "*r8analysis*" \) -print 2>/dev/null
-
-      - name: 🗜️ Upload Build to R2 (3)
-        timeout-minutes: 20
-        continue-on-error: true
-        if: steps.buildStep.outcome != 'skipped'
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: us-east-1
-          R2_BUCKET: ${{ secrets.R2_BUCKET_NAME }}
-          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
-        run: |
-          if [ ! -d "build/Android" ]; then
-            echo "'build/Android' folder not found, skipping '${{ matrix.exportMode }}' save."
-            exit 1
-          fi
-          #
-          source .github/scripts/helpers.sh
-          DIR="artifacts/build/Android"
-          #
-          archive_name="${{ env.VERSIONnMODE }}.3.7z"
-          compress_7z "$DIR" "artifacts/$archive_name" 3
-          echo "Uploading '$archive_name' to R2..."
-          time aws s3 cp "artifacts/$archive_name" "s3://$R2_BUCKET/${{ env.VERSIONnMODE }}/$archive_name" --endpoint-url $R2_ENDPOINT --quiet
-          echo "Uploading completed."
-
-      - name: 🗜️ Upload Build to R2 (4)
-        timeout-minutes: 20
-        continue-on-error: true
-        if: steps.buildStep.outcome != 'skipped'
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: us-east-1
-          R2_BUCKET: ${{ secrets.R2_BUCKET_NAME }}
-          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
-        run: |
-          if [ ! -d "build/Android" ]; then
-            echo "'build/Android' folder not found, skipping '${{ matrix.exportMode }}' save."
-            exit 1
-          fi
-          #
-          source .github/scripts/helpers.sh
-          DIR="artifacts/build/Android"
-          #
-          archive_name="${{ env.VERSIONnMODE }}.4.7z"
-          compress_7z "$DIR" "artifacts/$archive_name" 4
-          echo "Uploading '$archive_name' to R2..."
-          time aws s3 cp "artifacts/$archive_name" "s3://$R2_BUCKET/${{ env.VERSIONnMODE }}/$archive_name" --endpoint-url $R2_ENDPOINT --quiet
-          echo "Uploading completed."
-      
-      - name: 🗜️ Upload Build to R2 (5)
-        timeout-minutes: 20
-        continue-on-error: true
-        if: steps.buildStep.outcome != 'skipped'
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: us-east-1
-          R2_BUCKET: ${{ secrets.R2_BUCKET_NAME }}
-          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
-        run: |
-          if [ ! -d "build/Android" ]; then
-            echo "'build/Android' folder not found, skipping '${{ matrix.exportMode }}' save."
-            exit 1
-          fi
-          #
-          source .github/scripts/helpers.sh
-          DIR="artifacts/build/Android"
-          #
-          archive_name="${{ env.VERSIONnMODE }}.5.7z"
-          compress_7z "$DIR" "artifacts/$archive_name" 5
-          echo "Uploading '$archive_name' to R2..."
-          time aws s3 cp "artifacts/$archive_name" "s3://$R2_BUCKET/${{ env.VERSIONnMODE }}/$archive_name" --endpoint-url $R2_ENDPOINT --quiet
-          echo "Uploading completed."
-      
-      - name: 🗜️ Upload Build to R2 (6)
-        timeout-minutes: 20
-        continue-on-error: true
-        if: steps.buildStep.outcome != 'skipped'
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: us-east-1
-          R2_BUCKET: ${{ secrets.R2_BUCKET_NAME }}
-          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
-        run: |
-          if [ ! -d "build/Android" ]; then
-            echo "'build/Android' folder not found, skipping '${{ matrix.exportMode }}' save."
-            exit 1
-          fi
-          #
-          source .github/scripts/helpers.sh
-          DIR="artifacts/build/Android"
-          #
-          archive_name="${{ env.VERSIONnMODE }}.6.7z"
-          compress_7z "$DIR" "artifacts/$archive_name" 6
-          echo "Uploading '$archive_name' to R2..."
-          time aws s3 cp "artifacts/$archive_name" "s3://$R2_BUCKET/${{ env.VERSIONnMODE }}/$archive_name" --endpoint-url $R2_ENDPOINT --quiet
-          echo "Uploading completed."
-      
-      - name: 🗜️ Upload Build to R2 (7)
-        timeout-minutes: 20
-        continue-on-error: true
-        if: steps.buildStep.outcome != 'skipped'
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: us-east-1
-          R2_BUCKET: ${{ secrets.R2_BUCKET_NAME }}
-          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
-        run: |
-          if [ ! -d "build/Android" ]; then
-            echo "'build/Android' folder not found, skipping '${{ matrix.exportMode }}' save."
-            exit 1
-          fi
-          #
-          source .github/scripts/helpers.sh
-          DIR="artifacts/build/Android"
-          #
-          archive_name="${{ env.VERSIONnMODE }}.7.7z"
-          compress_7z "$DIR" "artifacts/$archive_name" 7
-          echo "Uploading '$archive_name' to R2..."
-          time aws s3 cp "artifacts/$archive_name" "s3://$R2_BUCKET/${{ env.VERSIONnMODE }}/$archive_name" --endpoint-url $R2_ENDPOINT --quiet
-          echo "Uploading completed."
-      
-      - name: 🗜️ Upload Build to R2 (8)
-        timeout-minutes: 20
-        continue-on-error: true
-        if: steps.buildStep.outcome != 'skipped'
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: us-east-1
-          R2_BUCKET: ${{ secrets.R2_BUCKET_NAME }}
-          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
-        run: |
-          if [ ! -d "build/Android" ]; then
-            echo "'build/Android' folder not found, skipping '${{ matrix.exportMode }}' save."
-            exit 1
-          fi
-          #
-          source .github/scripts/helpers.sh
-          DIR="artifacts/build/Android"
-          #
-          archive_name="${{ env.VERSIONnMODE }}.8.7z"
-          compress_7z "$DIR" "artifacts/$archive_name" 8
-          echo "Uploading '$archive_name' to R2..."
-          time aws s3 cp "artifacts/$archive_name" "s3://$R2_BUCKET/${{ env.VERSIONnMODE }}/$archive_name" --endpoint-url $R2_ENDPOINT --quiet
-          echo "Uploading completed."
 
       - name: Final timestamp
         continue-on-error: true
