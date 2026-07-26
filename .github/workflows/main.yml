@@ -999,19 +999,33 @@ jobs:
           echo "${{ env.GRADLE_OPTS }}"
           echo "====================================================="
           #
+          echo "Сейчас мы в: $(pwd)"
+          ls -alF
           cd   ${{ env.GRADLE_PROJECT }}
+          echo "Сейчас мы в: $(pwd)"
+          ls -alF
           time ${{ env.GRADLE_BIN_PATH }} :launcher:analyzeReleaseR8Config --no-daemon
 
       - name: Get all deps
         continue-on-error: true
         if: always() && steps.fix_sdk_ndk_paths_for_R8.outcome == 'success'
         run: |
+          echo "Сейчас мы в: $(pwd)"
+          ls -alF
+          cd   ${{ env.GRADLE_PROJECT }}
+          echo "Сейчас мы в: $(pwd)"
+          ls -alF
           time ${{ env.GRADLE_BIN_PATH }} :launcher:dependencies
 
       - name: Check "com.android.support"
         continue-on-error: true
         if: always() && steps.fix_sdk_ndk_paths_for_R8.outcome == 'success'
         run: |
+          echo "Сейчас мы в: $(pwd)"
+          ls -alF
+          cd   ${{ env.GRADLE_PROJECT }}
+          echo "Сейчас мы в: $(pwd)"
+          ls -alF
           time ${{ env.GRADLE_BIN_PATH }} :launcher:dependencies | grep "com.android.support"
 
       - name: Post 'R8 Configuration Analyzer' info
