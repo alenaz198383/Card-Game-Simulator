@@ -1004,14 +1004,12 @@ jobs:
 
       - name: Get all deps
         continue-on-error: true
-        id: run_R8_configuration_analyzer
         if: always() && steps.fix_sdk_ndk_paths_for_R8.outcome == 'success'
         run: |
           time ${{ env.GRADLE_BIN_PATH }} :launcher:dependencies
 
       - name: Check "com.android.support"
         continue-on-error: true
-        id: run_R8_configuration_analyzer
         if: always() && steps.fix_sdk_ndk_paths_for_R8.outcome == 'success'
         run: |
           time ${{ env.GRADLE_BIN_PATH }} :launcher:dependencies | grep "com.android.support"
