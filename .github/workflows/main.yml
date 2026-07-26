@@ -999,34 +999,8 @@ jobs:
           echo "${{ env.GRADLE_OPTS }}"
           echo "====================================================="
           #
-          echo "Сейчас мы в: $(pwd)"
-          ls -alF
           cd   ${{ env.GRADLE_PROJECT }}
-          echo "Сейчас мы в: $(pwd)"
-          ls -alF
           time ${{ env.GRADLE_BIN_PATH }} :launcher:analyzeReleaseR8Config --no-daemon
-
-      - name: Get all deps
-        continue-on-error: true
-        if: always() && steps.fix_sdk_ndk_paths_for_R8.outcome == 'success'
-        run: |
-          echo "Сейчас мы в: $(pwd)"
-          ls -alF
-          cd   ${{ env.GRADLE_PROJECT }}
-          echo "Сейчас мы в: $(pwd)"
-          ls -alF
-          time ${{ env.GRADLE_BIN_PATH }} :launcher:dependencies
-
-      - name: Check "com.android.support"
-        continue-on-error: true
-        if: always() && steps.fix_sdk_ndk_paths_for_R8.outcome == 'success'
-        run: |
-          echo "Сейчас мы в: $(pwd)"
-          ls -alF
-          cd   ${{ env.GRADLE_PROJECT }}
-          echo "Сейчас мы в: $(pwd)"
-          ls -alF
-          time ${{ env.GRADLE_BIN_PATH }} :launcher:dependencies | grep "com.android.support"
 
       - name: Post 'R8 Configuration Analyzer' info
         timeout-minutes: 1
@@ -1138,7 +1112,7 @@ jobs:
       - name: 🗜️ Upload R8 Configuration Analyzer Report (gradle stage)
         continue-on-error: true
         timeout-minutes: 1
-        if: always() && steps.buildStep.outcome != 'skipped'
+        if: always() && steps.run_R8_configuration_analyzer.outcome != 'skipped'
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
@@ -1163,6 +1137,35 @@ jobs:
           #
           archive_name="${{ env.VERSIONnMODE }}.tmp_r8_gradle_stage.7z"
           compress_7z "$REPORTS_DIR" "$archive_name" 9
+          time aws s3 cp "$archive_name" "s3://$R2_BUCKET/${{ env.VERSIONnMODE }}/$archive_name" --endpoint-url $R2_ENDPOINT --quiet
+
+      - name: 🗜️ Find and upload r8.json
+        continue-on-error: true
+        timeout-minutes: 1
+        if: always() && steps.run_R8_configuration_analyzer.outcome != 'skipped'
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-east-1
+          R2_BUCKET: ${{ secrets.R2_BUCKET_NAME }}
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+        run: |
+          DIR="${{ github.workspace }}"
+          #
+          if [ ! -d "$DIR" ]; then
+            echo "'$DIR' folder not found, skipping uploading it to R2."
+            exit 1
+          fi
+          #
+          source .github/scripts/helpers.sh
+          #
+          echo "=== 'r8.json' files in '$DIR' ==="
+          find $DIR -type f \( -iname "*r8.json*" \) 2>/dev/null
+          echo "================================="
+          #
+          archive_name="r8.json_in_gh_ws.zip"
+          find $DIR -type f \( -iname "*r8.json*" \) | zip $archive_name -@
+          #
           time aws s3 cp "$archive_name" "s3://$R2_BUCKET/${{ env.VERSIONnMODE }}/$archive_name" --endpoint-url $R2_ENDPOINT --quiet
 
       #- name: Find r8analysis
