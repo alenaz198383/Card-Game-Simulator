@@ -165,8 +165,8 @@ jobs:
           #
           echo -e "\n=== Swap ==="
           swapon --show || echo "Swap не настроен"
-          echo -e "\n=== Swap ==="
-          cat_file /proc/swaps
+          #echo -e "\n=== Swap ==="
+          #cat_file /proc/swaps
           #
           echo -e "\n=== CPU ==="
           lscpu # lscpu — подробная информация: модель CPU, количество сокетов, ядер на сокет, потоков, архитектура и т. п.
