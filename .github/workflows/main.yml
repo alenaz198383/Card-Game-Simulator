@@ -140,6 +140,49 @@ jobs:
           df -h
           free -h || true
 
+      - name: Get runner info
+        continue-on-error: true
+        timeout-minutes: 1
+        if: ${{ always() }}
+        run: |
+          echo "############### Get OS and Hardware info step ###############"
+          echo "=== ОС и ядро ==="
+          cat /etc/os-release
+          echo "=== ОС и ядро ==="
+          cat /etc/os-release | grep -E "^(NAME|VERSION)="
+          uname -r
+          echo "=== Версия Ubuntu ==="
+          lsb_release -a
+          #
+          echo -e "\n=== Память ==="
+          free -h
+          #Покажет:
+          #    total — всего памяти.
+          #    used / available — сколько занято и сколько доступно.
+          #    buff/cache — память, используемая под кэш и буферы (это нормально и полезно).
+          echo -e "\n=== Память ==="
+          cat /proc/meminfo
+          #
+          echo -e "\n=== Swap ==="
+          swapon --show || echo "Swap не настроен"
+          echo -e "\n=== Swap ==="
+          cat_file /proc/swaps
+          #
+          echo -e "\n=== CPU ==="
+          lscpu # lscpu — подробная информация: модель CPU, количество сокетов, ядер на сокет, потоков, архитектура и т. п.
+          echo -e "\n=== CPU ==="
+          nproc # nproc — количество доступных процессорных ядер (то, что видит планировщик ОС).
+          lscpu | grep -E "^(Model\ name|Socket|Core|Thread)"
+          echo -e "\n=== Ядро и архитектура ==="
+          uname -a
+          echo -e "\n=== CPU ==="
+          uname -m
+          echo -e "\n=== CPU ==="
+          cat /proc/cpuinfo
+          #
+          echo -e "\n=== Диски ==="
+          lsblk
+
       - name: Deps
         timeout-minutes: 2
         run: |
