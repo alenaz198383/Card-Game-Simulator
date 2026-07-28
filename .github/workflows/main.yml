@@ -158,9 +158,9 @@ jobs:
       - name: Check
         timeout-minutes: 1
         run: |
-          echo "check_: '$check_'"
-          echo "check_f: '$check_f'"
-          echo "check_t: '$check_t'"
+          echo "check_:  '${{ inputs.check_ }}'"
+          echo "check_f: '${{ inputs.check_f }}'"
+          echo "check_t: '${{ inputs.check_t }}'"
 
       - name: Get runner info
         continue-on-error: true
