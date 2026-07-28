@@ -62,6 +62,9 @@ on:
         description: 'Upload AAB to Sentry'
         type: boolean
         default: false
+      check:
+        description: 'check'
+        type: boolean
       sentry_debug:
         description: 'Sentry CLI debug logging'
         type: boolean
