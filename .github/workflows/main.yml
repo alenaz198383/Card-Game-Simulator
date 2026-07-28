@@ -62,9 +62,17 @@ on:
         description: 'Upload AAB to Sentry'
         type: boolean
         default: false
-      check:
-        description: 'check'
+      check_:
+        description: 'check_'
         type: boolean
+      check_f:
+        description: 'check_f'
+        type: boolean
+        default: false
+      check_t:
+        description: 'check_t'
+        type: boolean
+        default: true
       sentry_debug:
         description: 'Sentry CLI debug logging'
         type: boolean
@@ -146,6 +154,13 @@ jobs:
           date -u
           df -h
           free -h || true
+
+      - name: Check
+        timeout-minutes: 1
+        run: |
+          echo "check_: '$check_'"
+          echo "check_f: '$check_f'"
+          echo "check_t: '$check_t'"
 
       - name: Get runner info
         continue-on-error: true
