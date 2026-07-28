@@ -58,6 +58,10 @@ on:
           - apk
           - aab
         default: aab
+      upload_aab_to_sentry:
+        description: 'Upload AAB to Sentry'
+        type: boolean
+        default: false
       sentry_debug:
         description: 'Sentry CLI debug logging'
         type: boolean
@@ -438,7 +442,7 @@ jobs:
       - name: 📈 Upload AAB to Sentry for Size Tracking
         timeout-minutes: 1
         continue-on-error: true
-        if: steps.buildStep.outcome == 'success' && matrix.exportMode == 'aab'
+        if: steps.buildStep.outcome == 'success' && matrix.exportMode == 'aab' && github.event_name == 'workflow_dispatch' && inputs.upload_aab_to_sentry
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
