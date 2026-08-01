@@ -331,6 +331,7 @@ jobs:
       - name: Show Using Variables
         timeout-minutes: 1
         run: |
+          echo "=== Env vars: ==="
           echo "VERSION:                ${{ env.VERSION }}"
           echo "ANDROID_VERSION_CODE:   ${{ env.ANDROID_VERSION_CODE }}"
           echo "VERSIONnMODE:           ${{ env.VERSIONnMODE }}"
@@ -344,6 +345,16 @@ jobs:
           echo "GRADLE_PROJECT:         ${{ env.GRADLE_PROJECT }}"
           echo "GRADLE_REPORTS_FOLDER:  ${{ env.GRADLE_REPORTS_FOLDER }}"
           echo "GRADLE_PROBLEM_REPORT_FOLDER: ${{ env.GRADLE_PROBLEM_REPORT_FOLDER }}"
+          echo ""
+          echo "=== Inputs: ==="
+          echo "use_cached_library:    ${{ inputs.use_cached_library }}"
+          echo "restore_cache_from_R2: ${{ inputs.restore_cache_from_R2 }}"
+          echo "custom_build_version:  ${{ inputs.custom_build_version }}"
+          echo "run_build_jobs:        ${{ inputs.run_build_jobs }}"
+          echo "run_buildAndroid_job:  ${{ inputs.run_buildAndroid_job }}"
+          echo "android_export_types:  ${{ inputs.android_export_types }}"
+          echo "upload_aab_to_sentry:  ${{ inputs.upload_aab_to_sentry }}"
+          echo "run_buildWindows_job:  ${{ inputs.run_buildWindows_job }}"
 
       - name: 📈 Install sentry-cli
         timeout-minutes: 1
