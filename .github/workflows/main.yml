@@ -471,7 +471,7 @@ jobs:
             time sentry-cli releases new "$RELEASE_NAME" \
               --org "$SENTRY_ORG" \
               --project "$SENTRY_PROJECT" \
-              #--finalize \
+              --finalize \
               ${{ inputs.sentry_debug == true && '--log-level debug' || '' }}
             echo "----- Creating Sentry release ($RELEASE_NAME) completed -----"; echo ""
             #
