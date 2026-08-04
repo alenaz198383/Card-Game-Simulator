@@ -58,8 +58,8 @@ on:
           - apk
           - aab
         default: aab
-      upload_aab_to_sentry:
-        description: 'Upload AAB to Sentry'
+      sentry_size_analysis_enabled:
+        description: 'Enable AAB's Size Analysis in Sentry'
         type: boolean
         default: false
       sentry_debug:
@@ -353,7 +353,7 @@ jobs:
           echo "run_build_jobs:        ${{ inputs.run_build_jobs }}"
           echo "run_buildAndroid_job:  ${{ inputs.run_buildAndroid_job }}"
           echo "android_export_types:  ${{ inputs.android_export_types }}"
-          echo "upload_aab_to_sentry:  ${{ inputs.upload_aab_to_sentry }}"
+          echo "sentry_size_analysis_enabled:  ${{ inputs.sentry_size_analysis_enabled }}"
           echo "run_buildWindows_job:  ${{ inputs.run_buildWindows_job }}"
 
       - name: 📈 Install sentry-cli
@@ -361,6 +361,7 @@ jobs:
         if: matrix.exportMode == 'aab'
         run: |
           curl -sL https://sentry.io/get-cli/ | bash
+          echo "sentry-cli version: $(sentry-cli --version)"
 
       - name: Before build timestamp
         continue-on-error: true
@@ -383,6 +384,7 @@ jobs:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
           SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+          SENTRY_SIZE_ANALYSIS_ENABLED: ${{ inputs.sentry_size_analysis_enabled && 'true' || 'false' }}
           GRADLE_OPTS: ${{ env.GRADLE_OPTS }}
           R8_DUMP_KEEP_RADIUS: 'true'
         with:
@@ -451,45 +453,45 @@ jobs:
           #
           #rm -rf artifacts/
 
-      - name: 📈 Upload AAB to Sentry for Size Tracking
-        timeout-minutes: 1
-        continue-on-error: true
-        if: steps.buildStep.outcome == 'success' && matrix.exportMode == 'aab' && github.event_name == 'workflow_dispatch' && inputs.upload_aab_to_sentry
-        env:
-          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
-          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
-          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
-        run: |
-          AAB_FILE=$(find build -name "*.aab" | head -n 1)
-          if [ -n "$AAB_FILE" ]; then
-            echo "All '*.aab' files found:"
-            find build -name "*.aab"
-            echo "Using: $AAB_FILE"
-            RELEASE_NAME="game2048@${{ env.VERSION }}"
-            #
-            echo ""; echo "----- Creating Sentry release ($RELEASE_NAME) executed... -----"
-            time sentry-cli releases new "$RELEASE_NAME" \
-              --org "$SENTRY_ORG" \
-              --project "$SENTRY_PROJECT" \
-              --finalize \
-              ${{ inputs.sentry_debug == true && '--log-level debug' || '' }}
-            echo "----- Creating Sentry release ($RELEASE_NAME) completed -----"; echo ""
-            #
-            #echo ""; echo "----- Uploading AAB to Sentry executed... -----"
-            #time sentry-cli build upload "$AAB_FILE" \
-            #  --org "$SENTRY_ORG" \
-            #  --project "$SENTRY_PROJECT" \
-            #  --build-configuration Release \
-            #  --head-sha "${{ github.sha }}" \
-            #  --head-repo-name "gal20040/2048" \
-            #  --vcs-provider github \
-            #  --force-git-metadata \
-            #  ${{ inputs.sentry_debug == true && '--log-level debug' || '' }}
-            #echo "----- Uploading AAB to Sentry completed -----"; echo ""
-          else
-            echo "AAB file not found."
-            exit 1
-          fi
+      #- name: 📈 Upload AAB to Sentry for Size Tracking
+      #  timeout-minutes: 2
+      #  continue-on-error: true
+      #  if: steps.buildStep.outcome == 'success' && matrix.exportMode == 'aab' && github.event_name == 'workflow_dispatch' && inputs.sentry_size_analysis_enabled
+      #  env:
+      #    SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+      #    SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+      #    SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+      #  run: |
+      #    AAB_FILE=$(find build -name "*.aab" | head -n 1)
+      #    if [ -n "$AAB_FILE" ]; then
+      #      echo "All '*.aab' files found:"
+      #      find build -name "*.aab"
+      #      echo "Using: $AAB_FILE"
+      #      RELEASE_NAME="game2048@${{ env.VERSION }}"
+      #      #
+      #      echo ""; echo "----- Creating Sentry release ($RELEASE_NAME) executed... -----"
+      #      time sentry-cli releases new "$RELEASE_NAME" \
+      #        --org "$SENTRY_ORG" \
+      #        --project "$SENTRY_PROJECT" \
+      #        --finalize \
+      #        ${{ inputs.sentry_debug == true && '--log-level debug' || '' }}
+      #      echo "----- Creating Sentry release ($RELEASE_NAME) completed -----"; echo ""
+      #      #
+      #      #echo ""; echo "----- Uploading AAB to Sentry executed... -----"
+      #      #time sentry-cli build upload "$AAB_FILE" \
+      #      #  --org "$SENTRY_ORG" \
+      #      #  --project "$SENTRY_PROJECT" \
+      #      #  --build-configuration Release \
+      #      #  --head-sha "${{ github.sha }}" \
+      #      #  --head-repo-name "gal20040/2048" \
+      #      #  --vcs-provider github \
+      #      #  --force-git-metadata \
+      #      #  ${{ inputs.sentry_debug == true && '--log-level debug' || '' }}
+      #      #echo "----- Uploading AAB to Sentry completed -----"; echo ""
+      #    else
+      #      echo "AAB file not found."
+      #      exit 1
+      #    fi
 
       - name: 📈 Upload '*mapping*' to Sentry
         timeout-minutes: 1
