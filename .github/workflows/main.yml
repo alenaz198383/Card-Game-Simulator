@@ -59,7 +59,7 @@ on:
           - aab
         default: aab
       sentry_size_analysis_enabled:
-        description: 'Enable AAB's Size Analysis in Sentry'
+        description: 'Enable AAB_s Size Analysis in Sentry'
         type: boolean
         default: false
       sentry_debug:
