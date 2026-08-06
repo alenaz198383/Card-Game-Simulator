@@ -467,8 +467,8 @@ jobs:
             echo "All '*.aab' files found:"
             find build -name "*.aab"
             echo "Using: $AAB_FILE"
+            RELEASE_NAME="game2048@${{ env.VERSION }}"
             #
-            #RELEASE_NAME="game2048@${{ env.VERSION }}"
             #echo ""; echo "----- Creating Sentry release ($RELEASE_NAME) executed... -----"
             #time sentry-cli releases new "$RELEASE_NAME" \
             #  --org "$SENTRY_ORG" \
@@ -481,6 +481,7 @@ jobs:
             time sentry-cli build upload "$AAB_FILE" \
               --org "$SENTRY_ORG" \
               --project "$SENTRY_PROJECT" \
+              --release "$RELEASE_NAME" \
               --build-configuration Release \
               --head-sha "${{ github.sha }}" \
               --head-repo-name "gal20040/2048" \
