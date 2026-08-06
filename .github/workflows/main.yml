@@ -467,27 +467,27 @@ jobs:
             echo "All '*.aab' files found:"
             find build -name "*.aab"
             echo "Using: $AAB_FILE"
-            RELEASE_NAME="game2048@${{ env.VERSION }}"
             #
-            echo ""; echo "----- Creating Sentry release ($RELEASE_NAME) executed... -----"
-            time sentry-cli releases new "$RELEASE_NAME" \
-              --org "$SENTRY_ORG" \
-              --project "$SENTRY_PROJECT" \
-              --finalize \
-              ${{ inputs.sentry_debug == true && '--log-level debug' || '' }}
-            echo "----- Creating Sentry release ($RELEASE_NAME) completed -----"; echo ""
-            #
-            #echo ""; echo "----- Uploading AAB to Sentry executed... -----"
-            #time sentry-cli build upload "$AAB_FILE" \
+            #RELEASE_NAME="game2048@${{ env.VERSION }}"
+            #echo ""; echo "----- Creating Sentry release ($RELEASE_NAME) executed... -----"
+            #time sentry-cli releases new "$RELEASE_NAME" \
             #  --org "$SENTRY_ORG" \
             #  --project "$SENTRY_PROJECT" \
-            #  --build-configuration Release \
-            #  --head-sha "${{ github.sha }}" \
-            #  --head-repo-name "gal20040/2048" \
-            #  --vcs-provider github \
-            #  --force-git-metadata \
+            #  --finalize \
             #  ${{ inputs.sentry_debug == true && '--log-level debug' || '' }}
-            #echo "----- Uploading AAB to Sentry completed -----"; echo ""
+            #echo "----- Creating Sentry release ($RELEASE_NAME) completed -----"; echo ""
+            #
+            echo ""; echo "----- Uploading AAB to Sentry executed... -----"
+            time sentry-cli build upload "$AAB_FILE" \
+              --org "$SENTRY_ORG" \
+              --project "$SENTRY_PROJECT" \
+              --build-configuration Release \
+              --head-sha "${{ github.sha }}" \
+              --head-repo-name "gal20040/2048" \
+              --vcs-provider github \
+              --force-git-metadata \
+              ${{ inputs.sentry_debug == true && '--log-level debug' || '' }}
+            echo "----- Uploading AAB to Sentry completed -----"; echo ""
           else
             echo "AAB file not found."
             exit 1
