@@ -22,6 +22,7 @@ env:
   GRADLE_PROJECT: 'Library/Bee/Android/Prj/IL2CPP/Gradle'
   GRADLE_REPORTS_FOLDER: 'Library/Bee/Android/Prj/IL2CPP/Gradle/launcher/build/reports/'
   GRADLE_PROBLEM_REPORT_FOLDER: 'Library/Bee/Android/Prj/IL2CPP/Gradle/build/reports/' # + problems/problems-report.html
+  PROJECT_SETTINGS_FILE: 'ProjectSettings/ProjectSettings.asset'
 on:
   release:
     types:
@@ -41,7 +42,7 @@ on:
         required: false
         type: string
         default: ''
-      android_export_types:
+      android_export_type:
         description: 'Android Export Types'
         type: choice
         options:
@@ -49,6 +50,14 @@ on:
           - apk
           - aab
         default: aab
+      store_export_type:
+        description: 'Store Export Types'
+        type: choice
+        options:
+          - both
+          - google
+          - rustore
+        default: both
       sentry_size_analysis_enabled:
         description: 'Enable AAB_s Size Analysis in Sentry'
         type: boolean
@@ -108,13 +117,14 @@ jobs:
           fi
 
   buildAndroid:
-    name: 🦺 Build for Android (${{ matrix.exportMode }})
+    name: 🦺 Build ${{ matrix.exportMode }} for Android (${{ matrix.store }})
     runs-on: ubuntu-latest
     needs: [check_secrets]
     strategy:
       fail-fast: false
       matrix:
-        exportMode: ${{ (github.event_name == 'workflow_dispatch' && inputs.android_export_types == 'apk' && fromJSON('["apk"]')) || (github.event_name == 'workflow_dispatch' && inputs.android_export_types == 'aab' && fromJSON('["aab"]')) || fromJSON('["apk", "aab"]') }}
+        exportMode: ${{ (github.event_name == 'workflow_dispatch' && inputs.android_export_type == 'apk' && fromJSON('["apk"]')) || (github.event_name == 'workflow_dispatch' && inputs.android_export_type == 'aab' && fromJSON('["aab"]')) || fromJSON('["apk", "aab"]') }}
+        store: ${{ (github.event_name == 'workflow_dispatch' && inputs.store_export_type == 'google' && fromJSON('["google"]')) || (github.event_name == 'workflow_dispatch' && inputs.store_export_type == 'rustore' && fromJSON('["rustore"]')) || fromJSON('["google", "rustore"]') }}
     outputs:
       buildVersion: ${{ steps.buildStep.outputs.buildVersion }}
     timeout-minutes: 90
@@ -251,12 +261,17 @@ jobs:
         timeout-minutes: 1
         env:
           SENTRY_CLI_OPTIONS: ${{ secrets.SENTRY_CLI_OPTIONS }}
+          STORE:              ${{ matrix.store }}
         run: |
           source .github/scripts/helpers.sh
           CUSTOM_VER="${{ inputs.custom_build_version }}"
           #
-          mkdir -p Assets/Plugins/Sentry/
-          echo "$SENTRY_CLI_OPTIONS" > Assets/Plugins/Sentry/SentryCliOptions.asset
+          DEST="${{ env.PROJECT_SETTINGS_FILE }}"
+          cp "$DEST" "$DEST.bak"
+          #
+          set_sentry
+          #
+          set_define_symbols
           #
           mkdir -p ${{ env.GH_WS_R8PATH }}
           mkdir -p ${{ env.TMP_R8_ANALYSIS_PATH }}
@@ -299,14 +314,11 @@ jobs:
             BUILD_VERSION=$(cat ProjectSettings/buildVersion.txt | tr -d '[:space:]')
           fi
           #
-          DEST="ProjectSettings/ProjectSettings.asset"
-          cp "$DEST" "$DEST.bak"
-          #
           sed -i "s/^  bundleVersion: .*/  bundleVersion: $BUILD_VERSION/" "$DEST"
           sed -i "s/^  AndroidBundleVersionCode: .*/  AndroidBundleVersionCode: $ANDROID_CODE/" "$DEST"
           #
-          PROJECT_BUILD_VERSION=$(grep -oP 'bundleVersion:\s*\K[\d.]+' ProjectSettings/ProjectSettings.asset)
-          PROJECT_ANDROID_CODE=$(grep -oP 'AndroidBundleVersionCode:\s*\K\d+' ProjectSettings/ProjectSettings.asset)
+          PROJECT_BUILD_VERSION=$(grep -oP 'bundleVersion:\s*\K[\d.]+'        ${{ env.PROJECT_SETTINGS_FILE }})
+          PROJECT_ANDROID_CODE=$(grep -oP 'AndroidBundleVersionCode:\s*\K\d+' ${{ env.PROJECT_SETTINGS_FILE }})
           #
           echo "VERSION=$PROJECT_BUILD_VERSION"                              >> "$GITHUB_ENV"
           echo "ANDROID_VERSION_CODE=$PROJECT_ANDROID_CODE"                  >> "$GITHUB_ENV"
@@ -329,12 +341,14 @@ jobs:
           echo "GRADLE_PROJECT:         ${{ env.GRADLE_PROJECT }}"
           echo "GRADLE_REPORTS_FOLDER:  ${{ env.GRADLE_REPORTS_FOLDER }}"
           echo "GRADLE_PROBLEM_REPORT_FOLDER: ${{ env.GRADLE_PROBLEM_REPORT_FOLDER }}"
+          echo "PROJECT_SETTINGS_FILE:  ${{ env.PROJECT_SETTINGS_FILE }}"
           echo ""
           echo "=== Inputs: ==="
           echo "use_cached_library:    ${{ inputs.use_cached_library }}"
           echo "restore_cache_from_R2: ${{ inputs.restore_cache_from_R2 }}"
           echo "custom_build_version:  ${{ inputs.custom_build_version }}"
-          echo "android_export_types:  ${{ inputs.android_export_types }}"
+          echo "android_export_type:   ${{ inputs.android_export_type }}"
+          echo "store_export_type:     ${{ inputs.store_export_type }}"
           echo "sentry_size_analysis_enabled:  ${{ inputs.sentry_size_analysis_enabled }}"
 
       - name: 📈 Install sentry-cli
@@ -426,7 +440,7 @@ jobs:
           cp -r "build/" "artifacts/"
           mv "$SRC" "$DEST"
           #
-          zst_file_name="${{ env.VERSIONnMODE }}.tar.zst"
+          zst_file_name="${{ env.VERSIONnMODE }}.${{ matrix.store }}.tar.zst"
           compress_zstd "$DIR" "artifacts/$zst_file_name" 9
           echo "Uploading '$zst_file_name' to R2..."
           time aws s3 cp "artifacts/$zst_file_name" "s3://$R2_BUCKET/${{ env.VERSIONnMODE }}/$zst_file_name" --endpoint-url $R2_ENDPOINT --quiet
@@ -617,11 +631,11 @@ jobs:
           compress_7z "$REPORTS_DIR" "$archive_name" 9
           time aws s3 cp "$archive_name" "s3://$R2_BUCKET/${{ env.VERSIONnMODE }}/$archive_name" --endpoint-url $R2_ENDPOINT --quiet
 
-      - name: Revert `ProjectSettings/ProjectSettings.asset`
+      - name: Revert '${{ env.PROJECT_SETTINGS_FILE }}'
         timeout-minutes: 1
         if: steps.buildStep.outcome == 'success'
         run: |
-          DEST="ProjectSettings/ProjectSettings.asset"
+          DEST="${{ env.PROJECT_SETTINGS_FILE }}"
           rm "$DEST"
           mv "$DEST.bak" "$DEST"
 
