@@ -261,7 +261,8 @@ jobs:
         timeout-minutes: 1
         env:
           SENTRY_CLI_OPTIONS: ${{ secrets.SENTRY_CLI_OPTIONS }}
-          STORE:              ${{ matrix.store }}
+          PROJECT_SETTINGS_FILE: ${{ env.PROJECT_SETTINGS_FILE }}
+          STORE: ${{ matrix.store }}
         run: |
           source .github/scripts/helpers.sh
           CUSTOM_VER="${{ inputs.custom_build_version }}"
