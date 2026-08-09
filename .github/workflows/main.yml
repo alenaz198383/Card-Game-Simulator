@@ -132,7 +132,7 @@ jobs:
       - name: Start timestamp
         continue-on-error: true
         timeout-minutes: 1
-        if: ${{ always() }}
+        if: always()
         run: |
           date -u
           df -h
@@ -141,7 +141,7 @@ jobs:
       - name: Get runner info
         continue-on-error: true
         timeout-minutes: 1
-        if: ${{ always() }}
+        if: always()
         run: |
           echo "############### Get OS and Hardware info step ###############"
           echo "=== ОС и ядро ==="
@@ -361,7 +361,7 @@ jobs:
       - name: Before build timestamp
         continue-on-error: true
         timeout-minutes: 1
-        if: ${{ always() }}
+        if: always()
         run: |
           date -u
           df -h
@@ -401,7 +401,7 @@ jobs:
       - name: After build timestamp
         timeout-minutes: 1
         continue-on-error: true
-        if: ${{ always() }}
+        if: always() && steps.buildStep.outcome != 'skipped'
         run: |
           date -u
           df -h
@@ -509,7 +509,7 @@ jobs:
       - name: Post android build info
         timeout-minutes: 1
         continue-on-error: true
-        if: always()
+        if: always() && steps.buildStep.outcome != 'skipped'
         run: |
           echo "##### Build Step Info" >> $GITHUB_STEP_SUMMARY
           echo "- Project Version (buildVersion): \`${{ steps.buildStep.outputs.buildVersion }}\`" >> $GITHUB_STEP_SUMMARY
@@ -604,7 +604,7 @@ jobs:
       - name: 🗜️ Upload R8 Configuration Analysis
         continue-on-error: true
         timeout-minutes: 1
-        if: always() && steps.run_R8_configuration_analyzer.outcome != 'skipped'
+        if: always() && steps.buildStep.outcome != 'skipped'
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
@@ -815,7 +815,7 @@ jobs:
       - name: Post 'R8 Configuration Analyzer' info
         timeout-minutes: 1
         continue-on-error: true
-        if: always()
+        if: always() && steps.setup_latest_Gradle.outcome != 'skipped'
         run: |
           echo "##### 'R8 Configuration Analyzer' Step Info" >> $GITHUB_STEP_SUMMARY
           echo "- Setup latest Gradle: \`${{ steps.setup_latest_Gradle.outcome }}\`" >> $GITHUB_STEP_SUMMARY
@@ -981,7 +981,7 @@ jobs:
       - name: Final timestamp
         continue-on-error: true
         timeout-minutes: 1
-        if: ${{ always() }}
+        if: always()
         run: |
           date -u
           df -h
