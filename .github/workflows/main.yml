@@ -57,6 +57,7 @@ on:
           - both
           - google
           - rustore
+        default: choose_one
       track_type:
         description: 'Track Types'
         type: choice
@@ -64,6 +65,7 @@ on:
           - closed
           - internal
           - production
+        default: choose_one
       sentry_size_analysis_enabled:
         description: 'Enable AAB_s Size Analysis in Sentry'
         type: boolean
@@ -128,6 +130,8 @@ jobs:
           missing_types=""
           [ -z "${{ inputs.store_export_type }}" ] && missing_types="$missing_types store_export_type"
           [ -z "${{ inputs.track_type }}" ] && missing_types="$missing_types track_type"
+          [ "${{ inputs.store_export_type }}" == "choose_one" ] && missing_types="$missing_types store_export_type"
+          [ "${{ inputs.track_type }}" == "choose_one" ] && missing_types="$missing_types track_type"
           if [ -z "$missing_types" ]; then
             echo "✅ All required input types are present"
           else
