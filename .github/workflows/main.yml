@@ -37,11 +37,6 @@ on:
         description: 'Restore cache from R2'
         type: boolean
         default: true
-      custom_build_version:
-        description: 'Версия сборки (формат 1.2.3). Оставьте пустым, чтобы взять из buildVersion.txt'
-        required: false
-        type: string
-        default: ''
       android_export_type:
         description: 'Android Export Types'
         type: choice
@@ -63,8 +58,8 @@ on:
         description: 'Track Types'
         type: choice
         options:
-          - closed
           - internal
+          - closed
           - production
           - choose_one
         default: choose_one
@@ -76,6 +71,11 @@ on:
         description: 'Sentry CLI debug logging'
         type: boolean
         default: false
+      custom_build_version:
+        description: 'Версия сборки (формат 1.2.3). Оставьте пустым, чтобы взять из buildVersion.txt'
+        required: false
+        type: string
+        default: ''
 
 jobs:
   check_secrets:
