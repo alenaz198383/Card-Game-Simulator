@@ -57,7 +57,13 @@ on:
           - both
           - google
           - rustore
-        default: both
+      track_type:
+        description: 'Track Types'
+        type: choice
+        options:
+          - closed
+          - internal
+          - production
       sentry_size_analysis_enabled:
         description: 'Enable AAB_s Size Analysis in Sentry'
         type: boolean
@@ -113,6 +119,19 @@ jobs:
             echo "✅ All required 'ANDROID_' secrets are present"
           else
             echo "❌ Missing 'ANDROID_' secrets:$missing_secrets"
+            exit 1
+          fi
+
+      - name: 🩺 Check inputs
+        timeout-minutes: 1
+        run: |
+          missing_types=""
+          [ -z "${{ inputs.store_export_type }}" ] && missing_types="$missing_types store_export_type"
+          [ -z "${{ inputs.track_type }}" ] && missing_types="$missing_types track_type"
+          if [ -z "$missing_types" ]; then
+            echo "✅ All required input types are present"
+          else
+            echo "❌ Missing input types:$missing_types"
             exit 1
           fi
 
@@ -263,6 +282,7 @@ jobs:
           SENTRY_CLI_OPTIONS: ${{ secrets.SENTRY_CLI_OPTIONS }}
           PROJECT_SETTINGS_FILE: ${{ env.PROJECT_SETTINGS_FILE }}
           STORE: ${{ matrix.store }}
+          TRACK: ${{ inputs.track_type }}
         run: |
           source .github/scripts/helpers.sh
           CUSTOM_VER="${{ inputs.custom_build_version }}"
