@@ -57,6 +57,7 @@ on:
           - both
           - google
           - rustore
+          - choose_one
         default: choose_one
       track_type:
         description: 'Track Types'
@@ -65,6 +66,7 @@ on:
           - closed
           - internal
           - production
+          - choose_one
         default: choose_one
       sentry_size_analysis_enabled:
         description: 'Enable AAB_s Size Analysis in Sentry'
