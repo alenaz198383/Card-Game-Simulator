@@ -349,7 +349,8 @@ jobs:
           #
           echo "VERSION=$PROJECT_BUILD_VERSION"                              >> "$GITHUB_ENV"
           echo "ANDROID_VERSION_CODE=$PROJECT_ANDROID_CODE"                  >> "$GITHUB_ENV"
-          echo "VERSIONnMODE=$PROJECT_ANDROID_CODE.${{ matrix.exportMode }}" >> "$GITHUB_ENV"
+          echo "VERSIONnExt=$PROJECT_ANDROID_CODE.${{ matrix.exportMode }}"  >> "$GITHUB_ENV"
+          echo "fullVERSIONnMODE=$PROJECT_ANDROID_CODE.${{ matrix.store }}.${{ inputs.track_type }}.${{ matrix.exportMode }}" >> "$GITHUB_ENV"
 
       - name: Show Using Variables
         timeout-minutes: 1
@@ -357,7 +358,8 @@ jobs:
           echo "=== Env vars: ==="
           echo "VERSION:                ${{ env.VERSION }}"
           echo "ANDROID_VERSION_CODE:   ${{ env.ANDROID_VERSION_CODE }}"
-          echo "VERSIONnMODE:           ${{ env.VERSIONnMODE }}"
+          echo "VERSIONnExt:            ${{ env.VERSIONnExt }}"
+          echo "fullVERSIONnMODE:       ${{ env.fullVERSIONnMODE }}"
           echo "GRADLE_OPTS:            ${{ env.GRADLE_OPTS }}"
           echo "GH_WS_R8PATH:           ${{ env.GH_WS_R8PATH }}"
           echo "TMP_R8_ANALYSIS_PATH:   ${{ env.TMP_R8_ANALYSIS_PATH }}"
@@ -462,15 +464,15 @@ jobs:
           source .github/scripts/helpers.sh
           DIR="artifacts/build/Android"
           SRC="${DIR}/Android.${{ matrix.exportMode }}"
-          DEST="${DIR}/${{ env.VERSIONnMODE }}"
+          DEST="${DIR}/${{ env.fullVERSIONnMODE }}"
           mkdir -p artifacts
           cp -r "build/" "artifacts/"
           mv "$SRC" "$DEST"
           #
-          zst_file_name="${{ env.VERSIONnMODE }}.${{ matrix.store }}.tar.zst"
+          zst_file_name="${{ env.fullVERSIONnMODE }}.tar.zst"
           compress_zstd "$DIR" "artifacts/$zst_file_name" 9
           echo "Uploading '$zst_file_name' to R2..."
-          time aws s3 cp "artifacts/$zst_file_name" "s3://$R2_BUCKET/${{ env.VERSIONnMODE }}/$zst_file_name" --endpoint-url $R2_ENDPOINT --quiet
+          time aws s3 cp "artifacts/$zst_file_name" "s3://$R2_BUCKET/${{ env.ANDROID_VERSION_CODE }}/$zst_file_name" --endpoint-url $R2_ENDPOINT --quiet
           echo "Uploading completed."
 
       - name: 📈 Create Sentry release
@@ -594,9 +596,9 @@ jobs:
             echo "'$REPORTS_DIR' folder is empty, skipping uploading it to R2."
           fi
           #
-          archive_name="${{ env.VERSIONnMODE }}.Gradle_Problems_Report_main_stage.7z"
+          archive_name="${{ env.VERSIONnExt }}.Gradle_Problems_Report_main_stage.7z"
           compress_7z "$REPORTS_DIR" "$archive_name" 9
-          time aws s3 cp "$archive_name" "s3://$R2_BUCKET/${{ env.VERSIONnMODE }}/$archive_name" --endpoint-url $R2_ENDPOINT --quiet
+          time aws s3 cp "$archive_name" "s3://$R2_BUCKET/${{ env.ANDROID_VERSION_CODE }}/$archive_name" --endpoint-url $R2_ENDPOINT --quiet
 
       - name: 🗜️ Upload R8 Configuration Analyzer Report (tmp_r8_main_stage)
         continue-on-error: true
@@ -624,9 +626,9 @@ jobs:
             exit 1
           fi
           #
-          archive_name="${{ env.VERSIONnMODE }}.tmp_r8_main_stage.7z"
+          archive_name="${{ env.VERSIONnExt }}.tmp_r8_main_stage.7z"
           compress_7z "$REPORTS_DIR" "$archive_name" 9
-          time aws s3 cp "$archive_name" "s3://$R2_BUCKET/${{ env.VERSIONnMODE }}/$archive_name" --endpoint-url $R2_ENDPOINT --quiet
+          time aws s3 cp "$archive_name" "s3://$R2_BUCKET/${{ env.ANDROID_VERSION_CODE }}/$archive_name" --endpoint-url $R2_ENDPOINT --quiet
 
       - name: 🗜️ Upload R8 Configuration Analysis
         continue-on-error: true
@@ -654,9 +656,9 @@ jobs:
             exit 1
           fi
           #
-          archive_name="${{ env.VERSIONnMODE }}.gh_ws_r8_main_stage.7z"
+          archive_name="${{ env.VERSIONnExt }}.gh_ws_r8_main_stage.7z"
           compress_7z "$REPORTS_DIR" "$archive_name" 9
-          time aws s3 cp "$archive_name" "s3://$R2_BUCKET/${{ env.VERSIONnMODE }}/$archive_name" --endpoint-url $R2_ENDPOINT --quiet
+          time aws s3 cp "$archive_name" "s3://$R2_BUCKET/${{ env.ANDROID_VERSION_CODE }}/$archive_name" --endpoint-url $R2_ENDPOINT --quiet
 
       - name: Revert '${{ env.PROJECT_SETTINGS_FILE }}'
         timeout-minutes: 1
@@ -874,9 +876,9 @@ jobs:
             echo "'$REPORTS_DIR' folder is empty, skipping uploading it to R2."
           fi
           #
-          archive_name="${{ env.VERSIONnMODE }}.Gradle_Problems_Report_gradle_stage.7z"
+          archive_name="${{ env.VERSIONnExt }}.Gradle_Problems_Report_gradle_stage.7z"
           compress_7z "$REPORTS_DIR" "$archive_name" 9
-          time aws s3 cp "$archive_name" "s3://$R2_BUCKET/${{ env.VERSIONnMODE }}/$archive_name" --endpoint-url $R2_ENDPOINT --quiet
+          time aws s3 cp "$archive_name" "s3://$R2_BUCKET/${{ env.ANDROID_VERSION_CODE }}/$archive_name" --endpoint-url $R2_ENDPOINT --quiet
 
       - name: 🗜️ Upload R8 Configuration Analyzer Report
         continue-on-error: true
@@ -904,9 +906,9 @@ jobs:
             exit 1
           fi
           #
-          archive_name="${{ env.VERSIONnMODE }}.R8_Configuration_Analyzer_Report.7z"
+          archive_name="${{ env.VERSIONnExt }}.R8_Configuration_Analyzer_Report.7z"
           compress_7z "$REPORTS_DIR" "$archive_name" 9
-          time aws s3 cp "$archive_name" "s3://$R2_BUCKET/${{ env.VERSIONnMODE }}/$archive_name" --endpoint-url $R2_ENDPOINT --quiet
+          time aws s3 cp "$archive_name" "s3://$R2_BUCKET/${{ env.ANDROID_VERSION_CODE }}/$archive_name" --endpoint-url $R2_ENDPOINT --quiet
 
       - name: 🗜️ Upload R8 Configuration Analysis
         continue-on-error: true
@@ -934,9 +936,9 @@ jobs:
             exit 1
           fi
           #
-          archive_name="${{ env.VERSIONnMODE }}.gh_ws_r8_gradle_stage.7z"
+          archive_name="${{ env.VERSIONnExt }}.gh_ws_r8_gradle_stage.7z"
           compress_7z "$REPORTS_DIR" "$archive_name" 9
-          time aws s3 cp "$archive_name" "s3://$R2_BUCKET/${{ env.VERSIONnMODE }}/$archive_name" --endpoint-url $R2_ENDPOINT --quiet
+          time aws s3 cp "$archive_name" "s3://$R2_BUCKET/${{ env.ANDROID_VERSION_CODE }}/$archive_name" --endpoint-url $R2_ENDPOINT --quiet
 
       - name: Check ${{ env.GH_WS_R8PATH }}
         continue-on-error: true
@@ -972,9 +974,9 @@ jobs:
             exit 1
           fi
           #
-          archive_name="${{ env.VERSIONnMODE }}.tmp_r8_gradle_stage.7z"
+          archive_name="${{ env.VERSIONnExt }}.tmp_r8_gradle_stage.7z"
           compress_7z "$REPORTS_DIR" "$archive_name" 9
-          time aws s3 cp "$archive_name" "s3://$R2_BUCKET/${{ env.VERSIONnMODE }}/$archive_name" --endpoint-url $R2_ENDPOINT --quiet
+          time aws s3 cp "$archive_name" "s3://$R2_BUCKET/${{ env.ANDROID_VERSION_CODE }}/$archive_name" --endpoint-url $R2_ENDPOINT --quiet
 
       - name: 🗜️ Find and upload r8.json
         continue-on-error: true
@@ -1003,7 +1005,7 @@ jobs:
           archive_name="r8.json_in_gh_ws.zip"
           find $DIR -type f \( -iname "*r8.json*" \) | zip $archive_name -@
           #
-          time aws s3 cp "$archive_name" "s3://$R2_BUCKET/${{ env.VERSIONnMODE }}/$archive_name" --endpoint-url $R2_ENDPOINT --quiet
+          time aws s3 cp "$archive_name" "s3://$R2_BUCKET/${{ env.ANDROID_VERSION_CODE }}/$archive_name" --endpoint-url $R2_ENDPOINT --quiet
 
       - name: Final timestamp
         continue-on-error: true
