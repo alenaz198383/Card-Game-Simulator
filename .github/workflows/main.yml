@@ -66,7 +66,7 @@ on:
       sentry_size_analysis_enabled:
         description: 'Enable AAB_s Size Analysis in Sentry'
         type: boolean
-        default: false
+        default: true
       sentry_debug:
         description: 'Sentry CLI debug logging'
         type: boolean
@@ -297,8 +297,9 @@ jobs:
           cp "$DEST" "$DEST.bak"
           #
           set_sentry
-          #
           set_define_symbols
+          tune_UniversalRenderPipelineGlobalSettings
+          remove_ttf_files
           #
           mkdir -p ${{ env.GH_WS_R8PATH }}
           mkdir -p ${{ env.TMP_R8_ANALYSIS_PATH }}
@@ -378,6 +379,7 @@ jobs:
           echo "custom_build_version:  ${{ inputs.custom_build_version }}"
           echo "android_export_type:   ${{ inputs.android_export_type }}"
           echo "store_export_type:     ${{ inputs.store_export_type }}"
+          echo "track_type:                    ${{ inputs.track_type }}"
           echo "sentry_size_analysis_enabled:  ${{ inputs.sentry_size_analysis_enabled }}"
 
       - name: 📈 Install sentry-cli
