@@ -302,6 +302,7 @@ jobs:
           set_define_symbols
           tune_UniversalRenderPipelineGlobalSettings
           remove_ttf_files
+          fix_meta_files
           #
           mkdir -p ${{ env.GH_WS_R8PATH }}
           mkdir -p ${{ env.TMP_R8_ANALYSIS_PATH }}
