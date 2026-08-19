@@ -72,7 +72,7 @@ on:
         type: boolean
         default: false
       custom_build_version:
-        description: 'Версия сборки (формат 1.2.3). Оставьте пустым, чтобы взять из buildVersion.txt'
+        description: 'Версия сборки (формат 1.2.3)'
         required: false
         type: string
         default: ''
@@ -209,8 +209,10 @@ jobs:
       - name: Deps
         timeout-minutes: 2
         run: |
-          sudo apt-get update
-          sudo apt-get install -y p7zip-full
+          if ! command -v 7z >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y p7zip-full
+          fi
 
       - name: Free Disk Space
         timeout-minutes: 6
