@@ -54,15 +54,6 @@ on:
           - rustore
           - choose_one
         default: choose_one
-      track_type:
-        description: 'Track Types'
-        type: choice
-        options:
-          - internal
-          - closed
-          - production
-          - choose_one
-        default: choose_one
       sentry_size_analysis_enabled:
         description: 'Enable AAB_s Size Analysis in Sentry'
         type: boolean
@@ -131,9 +122,7 @@ jobs:
         run: |
           missing_types=""
           [ -z "${{ inputs.store_export_type }}" ] && missing_types="$missing_types store_export_type"
-          [ -z "${{ inputs.track_type }}" ] && missing_types="$missing_types track_type"
           [ "${{ inputs.store_export_type }}" == "choose_one" ] && missing_types="$missing_types store_export_type"
-          [ "${{ inputs.track_type }}" == "choose_one" ] && missing_types="$missing_types track_type"
           if [ -z "$missing_types" ]; then
             echo "✅ All required input types are present"
           else
@@ -290,7 +279,6 @@ jobs:
           SENTRY_CLI_OPTIONS: ${{ secrets.SENTRY_CLI_OPTIONS }}
           PROJECT_SETTINGS_FILE: ${{ env.PROJECT_SETTINGS_FILE }}
           STORE: ${{ matrix.store }}
-          TRACK: ${{ inputs.track_type }}
         run: |
           source .github/scripts/helpers.sh
           CUSTOM_VER="${{ inputs.custom_build_version }}"
@@ -302,7 +290,6 @@ jobs:
           set_define_symbols
           tune_UniversalRenderPipelineGlobalSettings
           remove_ttf_files
-          fix_meta_files
           #
           mkdir -p ${{ env.GH_WS_R8PATH }}
           mkdir -p ${{ env.TMP_R8_ANALYSIS_PATH }}
@@ -354,7 +341,7 @@ jobs:
           echo "VERSION=$PROJECT_BUILD_VERSION"                              >> "$GITHUB_ENV"
           echo "ANDROID_VERSION_CODE=$PROJECT_ANDROID_CODE"                  >> "$GITHUB_ENV"
           echo "VERSIONnExt=$PROJECT_ANDROID_CODE.${{ matrix.exportMode }}"  >> "$GITHUB_ENV"
-          echo "fullVERSIONnMODE=$PROJECT_ANDROID_CODE.${{ matrix.store }}.${{ inputs.track_type }}.${{ matrix.exportMode }}" >> "$GITHUB_ENV"
+          echo "fullVERSIONnMODE=$PROJECT_ANDROID_CODE.${{ matrix.store }}.${{ matrix.exportMode }}" >> "$GITHUB_ENV"
 
       - name: Show Using Variables
         timeout-minutes: 1
@@ -382,7 +369,6 @@ jobs:
           echo "custom_build_version:  ${{ inputs.custom_build_version }}"
           echo "android_export_type:   ${{ inputs.android_export_type }}"
           echo "store_export_type:     ${{ inputs.store_export_type }}"
-          echo "track_type:                    ${{ inputs.track_type }}"
           echo "sentry_size_analysis_enabled:  ${{ inputs.sentry_size_analysis_enabled }}"
 
       - name: 📈 Install sentry-cli
