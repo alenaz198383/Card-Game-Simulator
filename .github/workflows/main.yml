@@ -1009,16 +1009,16 @@ jobs:
           #
           time aws s3 cp "$archive_name" "s3://$R2_BUCKET/${{ env.ANDROID_VERSION_CODE }}/$archive_name" --endpoint-url $R2_ENDPOINT --quiet
 
-      - name: 🗜️ Find and upload proguard for ads-mobile-sdk
+      - name: 🗜️ Find and upload proguard.txt for ads-mobile-sdk
         continue-on-error: true
         timeout-minutes: 5
         if: always() && steps.run_R8_configuration_analyzer.outcome != 'skipped'
-        #env:
-        #  AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-        #  AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-        #  AWS_DEFAULT_REGION: us-east-1
-        #  R2_BUCKET: ${{ secrets.R2_BUCKET_NAME }}
-        #  R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-east-1
+          R2_BUCKET: ${{ secrets.R2_BUCKET_NAME }}
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
         run: |
           DIR="${{ github.workspace }}"
           #
@@ -1033,11 +1033,11 @@ jobs:
           find $DIR -type f \( -iname "*proguard.txt*" \) 2>/dev/null
           # .gradle/caches/9.5.1/transforms/fab4be94b19d7651db176131e5944978/transformed/jetified-ads-mobile-sdk-1.4.0/proguard.txt
           echo "================================="
-          ##
-          #archive_name="r8.json_in_gh_ws.zip"
-          #find $DIR -type f \( -iname "*r8.json*" \) | zip $archive_name -@
-          ##
-          #time aws s3 cp "$archive_name" "s3://$R2_BUCKET/${{ env.ANDROID_VERSION_CODE }}/$archive_name" --endpoint-url $R2_ENDPOINT --quiet
+          #
+          archive_name="proguard.txt_in_gh_ws.zip"
+          find $DIR -type f \( -iname "*proguard.txt*" \) | zip $archive_name -@
+          #
+          time aws s3 cp "$archive_name" "s3://$R2_BUCKET/${{ env.ANDROID_VERSION_CODE }}/$archive_name" --endpoint-url $R2_ENDPOINT --quiet
 
       - name: Final timestamp
         continue-on-error: true
