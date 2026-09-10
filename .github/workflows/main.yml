@@ -400,8 +400,8 @@ jobs:
       - name: 🦺 Build Android ${{ matrix.exportMode }}
         timeout-minutes: 90
         id: buildStep
-        #v.6.0.0 - https://github.com/game-ci/unity-builder/releases
-        uses: game-ci/unity-builder@eb1b9fba120c6e62c9fb7a7a81d6c107ce004c45
+        #v.5.0.1 - https://github.com/game-ci/unity-builder/releases
+        uses: game-ci/unity-builder@adaf7cd8f42fd48fbbf2d4f5f67ca30d87f819f1
         env:
           USYM_UPLOAD_AUTH_TOKEN: ${{ secrets.USYM_UPLOAD_AUTH_TOKEN }}
           UNITY_EMAIL: ${{ secrets.UNITY_EMAIL_PERSONAL }}
