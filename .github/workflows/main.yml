@@ -531,6 +531,65 @@ jobs:
           rm "$DEST"
           mv "$DEST.bak" "$DEST"
 
+      - name: 🗜️ Find and upload proguard.txt for ads-mobile-sdk
+        continue-on-error: true
+        timeout-minutes: 5
+        if: always() && steps.buildStep.outcome != 'skipped'
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-east-1
+          R2_BUCKET: ${{ secrets.R2_BUCKET_NAME }}
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+        run: |
+          DIR="${{ github.workspace }}"
+          #
+          if [ ! -d "$DIR" ]; then
+            echo "'$DIR' folder not found, skipping uploading it to R2."
+            exit 1
+          fi
+          #
+          source .github/scripts/helpers.sh
+          #
+          echo "=== '*proguard.txt*' files in '$DIR' ==="
+          find $DIR -type f \( -iname "*proguard.txt*" \) 2>/dev/null
+          # .gradle/caches/9.5.1/transforms/fab4be94b19d7651db176131e5944978/transformed/jetified-ads-mobile-sdk-1.4.0/proguard.txt
+          echo "================================="
+          #
+          archive_name="proguard_in_gh_ws.zip"
+          find $DIR -type f \( -iname "*proguard.txt*" \) | zip $archive_name -@
+          #
+          time aws s3 cp "$archive_name" "s3://$R2_BUCKET/${{ env.ANDROID_VERSION_CODE }}/$archive_name" --endpoint-url $R2_ENDPOINT --quiet
+
+      - name: 🗜️ Find and upload 'AndroidManifest.xml'
+        continue-on-error: true
+        timeout-minutes: 5
+        if: always() && steps.buildStep.outcome != 'skipped'
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-east-1
+          R2_BUCKET: ${{ secrets.R2_BUCKET_NAME }}
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+        run: |
+          DIR="${{ github.workspace }}"
+          #
+          if [ ! -d "$DIR" ]; then
+            echo "'$DIR' folder not found, skipping uploading it to R2."
+            exit 1
+          fi
+          #
+          source .github/scripts/helpers.sh
+          #
+          echo "=== '*AndroidManifest.xml*' files in '$DIR' ==="
+          find $DIR -type f \( -iname "*AndroidManifest.xml*" \) 2>/dev/null
+          echo "================================="
+          #
+          archive_name="AndroidManifest_in_gh_ws.zip"
+          find $DIR -type f \( -iname "*AndroidManifest.xml*" \) | zip $archive_name -@
+          #
+          time aws s3 cp "$archive_name" "s3://$R2_BUCKET/${{ env.ANDROID_VERSION_CODE }}/$archive_name" --endpoint-url $R2_ENDPOINT --quiet
+
       - name: Final timestamp
         continue-on-error: true
         timeout-minutes: 1
