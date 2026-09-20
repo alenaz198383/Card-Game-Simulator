@@ -12,6 +12,16 @@ env:
   DOTNET_NOLOGO: true
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
   #FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  TMP_R8_ANALYSIS_PATH: '/tmp/r8analysis'
+  GH_WS_R8PATH: '${{ github.workspace }}/r8analysis'
+  GRADLE_OPTS: '-Dcom.android.tools.r8.dumpkeepradiushtmltodirectory=${{ github.workspace }}/r8analysis'
+  LATEST_GRADLE: '9.5.1'
+  GRADLE_FOLDER_PATH: '/tmp/gradle'
+  GRADLE_BIN_FOLDER_PATH: '/tmp/gradle/bin'
+  GRADLE_BIN_PATH: '/tmp/gradle/bin/gradle'
+  GRADLE_PROJECT: 'Library/Bee/Android/Prj/IL2CPP/Gradle'
+  GRADLE_REPORTS_FOLDER: 'Library/Bee/Android/Prj/IL2CPP/Gradle/launcher/build/reports/'
+  GRADLE_PROBLEM_REPORT_FOLDER: 'Library/Bee/Android/Prj/IL2CPP/Gradle/build/reports/' # + problems/problems-report.html
   PROJECT_SETTINGS_FILE: 'ProjectSettings/ProjectSettings.asset'
 on:
   release:
@@ -260,15 +270,15 @@ jobs:
       #      echo "Cache not found. Nothing to download."
       #    fi
 
-      #- name: Cache Library
-      #  timeout-minutes: 3
-      #  #v6.1.0 - https://github.com/actions/cache/releases
-      #  uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
-      #  with:
-      #    path: Library
-      #    key: Library-Android-${{ hashFiles('Packages/manifest.json', 'Packages/packages-lock.json', 'ProjectSettings/ProjectSettings.asset', 'ProjectSettings/ProjectVersion.txt', 'Assets/Settings/Build Profiles/Android_Release_APK.asset', 'Assets/Settings/Build Profiles/Android_Release_AAB.asset') }}-${{ matrix.exportMode == 'apk' && 'apk' || 'aab' }}${{ inputs.use_cached_library == true && '' || '-new' }}
-      #    restore-keys: |
-      #      Library-Android-${{ hashFiles('Packages/manifest.json', 'Packages/packages-lock.json', 'ProjectSettings/ProjectSettings.asset', 'ProjectSettings/ProjectVersion.txt', 'Assets/Settings/Build Profiles/Android_Release_APK.asset', 'Assets/Settings/Build Profiles/Android_Release_AAB.asset') }}-${{ inputs.use_cached_library == true && '' || '-dontusecache' }}
+      - name: Cache Library
+        timeout-minutes: 3
+        #v6.1.0 - https://github.com/actions/cache/releases
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+        with:
+          path: Library
+          key: Library-Android-${{ hashFiles('Packages/manifest.json', 'Packages/packages-lock.json', 'ProjectSettings/ProjectSettings.asset', 'ProjectSettings/ProjectVersion.txt', 'Assets/Settings/Build Profiles/Android_Release_APK.asset', 'Assets/Settings/Build Profiles/Android_Release_AAB.asset') }}-${{ matrix.exportMode == 'apk' && 'apk' || 'aab' }}${{ inputs.use_cached_library == true && '' || '-new' }}
+          restore-keys: |
+            Library-Android-${{ hashFiles('Packages/manifest.json', 'Packages/packages-lock.json', 'ProjectSettings/ProjectSettings.asset', 'ProjectSettings/ProjectVersion.txt', 'Assets/Settings/Build Profiles/Android_Release_APK.asset', 'Assets/Settings/Build Profiles/Android_Release_AAB.asset') }}-${{ inputs.use_cached_library == true && '' || '-dontusecache' }}
 
       - name: Extract Build Versions (File or Input)
         timeout-minutes: 1
@@ -289,6 +299,12 @@ jobs:
           set_prod
           tune_UniversalRenderPipelineGlobalSettings
           remove_ttf_files
+          #
+          mkdir -p ${{ env.GH_WS_R8PATH }}
+          mkdir -p ${{ env.TMP_R8_ANALYSIS_PATH }}
+          #
+          rm -rf Assets/PlayModeTests/
+          rm -rf Assets/Scripts/EditModeTests/
           #
           # --- Логика для VERSION (buildVersion.txt) ---
           if [ -n "$CUSTOM_VER" ]; then
@@ -344,6 +360,16 @@ jobs:
           echo "ANDROID_VERSION_CODE:   ${{ env.ANDROID_VERSION_CODE }}"
           echo "VERSIONnExt:            ${{ env.VERSIONnExt }}"
           echo "fullVERSIONnMODE:       ${{ env.fullVERSIONnMODE }}"
+          echo "GRADLE_OPTS:            ${{ env.GRADLE_OPTS }}"
+          echo "GH_WS_R8PATH:           ${{ env.GH_WS_R8PATH }}"
+          echo "TMP_R8_ANALYSIS_PATH:   ${{ env.TMP_R8_ANALYSIS_PATH }}"
+          echo "LATEST_GRADLE:          ${{ env.LATEST_GRADLE }}"
+          echo "GRADLE_FOLDER_PATH:     ${{ env.GRADLE_FOLDER_PATH }}"
+          echo "GRADLE_BIN_FOLDER_PATH: ${{ env.GRADLE_BIN_FOLDER_PATH }}"
+          echo "GRADLE_BIN_PATH:        ${{ env.GRADLE_BIN_PATH }}"
+          echo "GRADLE_PROJECT:         ${{ env.GRADLE_PROJECT }}"
+          echo "GRADLE_REPORTS_FOLDER:  ${{ env.GRADLE_REPORTS_FOLDER }}"
+          echo "GRADLE_PROBLEM_REPORT_FOLDER: ${{ env.GRADLE_PROBLEM_REPORT_FOLDER }}"
           echo "PROJECT_SETTINGS_FILE:  ${{ env.PROJECT_SETTINGS_FILE }}"
           echo ""
           echo "=== Inputs: ==="
@@ -385,6 +411,7 @@ jobs:
           SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
           SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
           SENTRY_SIZE_ANALYSIS_ENABLED: ${{ inputs.sentry_size_analysis_enabled && 'true' || 'false' }}
+          GRADLE_OPTS: ${{ env.GRADLE_OPTS }}
           R8_DUMP_KEEP_RADIUS: 'true'
         with:
           targetPlatform: Android
@@ -523,6 +550,119 @@ jobs:
           echo "- Build Step outcome: \`${{ steps.buildStep.outcome }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- Build Step conclusion: \`${{ steps.buildStep.conclusion }}\`" >> $GITHUB_STEP_SUMMARY
 
+      #- name: Save Library cache to R2
+      # timeout-minutes: 10
+      #  id: save_library_cache
+      #  if: steps.buildStep.outcome == 'success'
+      #  env:
+      #    AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      #    AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      #    AWS_DEFAULT_REGION: us-east-1
+      #    R2_BUCKET: ${{ secrets.R2_BUCKET_NAME }}
+      #    R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+      #    CACHE_KEY: Library-Android-${{ hashFiles('Packages/manifest.json', 'Packages/packages-lock.json', 'ProjectSettings/ProjectSettings.asset', 'ProjectSettings/ProjectVersion.txt', 'Assets/Settings/Build Profiles/Android_Release_APK.asset', 'Assets/Settings/Build Profiles/Android_Release_AAB.asset') }}
+      #  run: |
+      #    if [ ! -d "Library" ]; then
+      #      echo "Library folder not found, skipping cache save."
+      #      exit 1
+      #    fi
+      #    echo "Saving cache: $CACHE_KEY"
+      #    tar -I 'zstd -9' -cf Library.tar.zst Library
+      #    aws s3 cp Library.tar.zst "s3://$R2_BUCKET/$CACHE_KEY" --endpoint-url $R2_ENDPOINT --quiet
+      #    echo "Cache saved successfully."
+      #    source .github/scripts/helpers.sh
+      #    check_folder ./
+      #    check_folder "Library/"
+      #    check_file   "Library.tar.zst"
+
+      - name: 🗜️ Upload Gradle Problems Report (main build)
+        continue-on-error: true
+        timeout-minutes: 1
+        if: always() && steps.buildStep.outcome != 'skipped'
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-east-1
+          R2_BUCKET: ${{ secrets.R2_BUCKET_NAME }}
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+        run: |
+          REPORTS_DIR="${{ env.GRADLE_PROBLEM_REPORT_FOLDER }}"
+          if [ ! -d "$REPORTS_DIR" ]; then
+            echo "'$REPORTS_DIR' folder not found, skipping uploading it to R2."
+          fi
+          #
+          source .github/scripts/helpers.sh
+          check_folder $REPORTS_DIR
+          #
+          nonZeroFiles=$(find $REPORTS_DIR -type f -size +0 | wc -l)
+          if [ "$nonZeroFiles" -le 0 ]; then
+            echo "'$REPORTS_DIR' folder is empty, skipping uploading it to R2."
+          fi
+          #
+          archive_name="${{ env.VERSIONnExt }}.Gradle_Problems_Report_main_stage.7z"
+          compress_7z "$REPORTS_DIR" "$archive_name" 9
+          time aws s3 cp "$archive_name" "s3://$R2_BUCKET/${{ env.ANDROID_VERSION_CODE }}/$archive_name" --endpoint-url $R2_ENDPOINT --quiet
+
+      - name: 🗜️ Upload R8 Configuration Analyzer Report (tmp_r8_main_stage)
+        continue-on-error: true
+        timeout-minutes: 1
+        if: always() && steps.buildStep.outcome != 'skipped'
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-east-1
+          R2_BUCKET: ${{ secrets.R2_BUCKET_NAME }}
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+        run: |
+          REPORTS_DIR="${{ env.TMP_R8_ANALYSIS_PATH }}"
+          if [ ! -d "$REPORTS_DIR" ]; then
+            echo "'$REPORTS_DIR' folder not found, skipping uploading it to R2."
+            exit 1
+          fi
+          #
+          source .github/scripts/helpers.sh
+          check_folder $REPORTS_DIR
+          #
+          nonZeroFiles=$(find $REPORTS_DIR -type f -size +0 | wc -l)
+          if [ "$nonZeroFiles" -le 0 ]; then
+            echo "'$REPORTS_DIR' folder is empty, skipping uploading it to R2."
+            exit 1
+          fi
+          #
+          archive_name="${{ env.VERSIONnExt }}.tmp_r8_main_stage.7z"
+          compress_7z "$REPORTS_DIR" "$archive_name" 9
+          time aws s3 cp "$archive_name" "s3://$R2_BUCKET/${{ env.ANDROID_VERSION_CODE }}/$archive_name" --endpoint-url $R2_ENDPOINT --quiet
+
+      - name: 🗜️ Upload R8 Configuration Analysis
+        continue-on-error: true
+        timeout-minutes: 1
+        if: always() && steps.buildStep.outcome != 'skipped'
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-east-1
+          R2_BUCKET: ${{ secrets.R2_BUCKET_NAME }}
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+        run: |
+          REPORTS_DIR="${{ env.GH_WS_R8PATH }}/"
+          if [ ! -d "$REPORTS_DIR" ]; then
+            echo "'$REPORTS_DIR' folder not found, skipping uploading it to R2."
+            exit 1
+          fi
+          #
+          source .github/scripts/helpers.sh
+          check_folder $REPORTS_DIR
+          #
+          nonZeroFiles=$(find $REPORTS_DIR -type f -size +0 | wc -l)
+          if [ "$nonZeroFiles" -le 0 ]; then
+            echo "'$REPORTS_DIR' folder is empty, skipping uploading it to R2."
+            exit 1
+          fi
+          #
+          archive_name="${{ env.VERSIONnExt }}.gh_ws_r8_main_stage.7z"
+          compress_7z "$REPORTS_DIR" "$archive_name" 9
+          time aws s3 cp "$archive_name" "s3://$R2_BUCKET/${{ env.ANDROID_VERSION_CODE }}/$archive_name" --endpoint-url $R2_ENDPOINT --quiet
+
       - name: Revert '${{ env.PROJECT_SETTINGS_FILE }}'
         timeout-minutes: 1
         if: steps.buildStep.outcome == 'success'
@@ -530,6 +670,345 @@ jobs:
           DEST="${{ env.PROJECT_SETTINGS_FILE }}"
           rm "$DEST"
           mv "$DEST.bak" "$DEST"
+
+      - name: Setup latest Gradle
+        continue-on-error: true
+        id: setup_latest_Gradle
+        if: always() && steps.buildStep.outcome != 'skipped'
+        env:
+          LATEST_GRADLE_URL: 'https://services.gradle.org/distributions/gradle-${{ env.LATEST_GRADLE }}-bin.zip'
+          PATH_TO_SAVE_ZIP: '${{ env.GRADLE_FOLDER_PATH }}.zip'
+        run: |
+          source .github/scripts/helpers.sh
+          #
+          echo "Downloading '$LATEST_GRADLE_URL' to '$PATH_TO_SAVE_ZIP'..."
+          time wget      -q "$LATEST_GRADLE_URL" -O "$PATH_TO_SAVE_ZIP"
+          #
+          check_folder "/tmp/"
+          check_file   "$PATH_TO_SAVE_ZIP"
+          #
+          echo "Unziping '$PATH_TO_SAVE_ZIP' to '${{ env.GRADLE_FOLDER_PATH }}'..."
+          time  unzip -q "$PATH_TO_SAVE_ZIP" -d /tmp/
+          #
+          check_folder "/tmp/"
+          check_folder "${{ env.GRADLE_FOLDER_PATH }}"
+          check_folder "${{ env.GRADLE_FOLDER_PATH }}-${{ env.LATEST_GRADLE }}"
+          if [ -d "${{ env.GRADLE_FOLDER_PATH }}-${{ env.LATEST_GRADLE }}" ]; then
+            mv "${{ env.GRADLE_FOLDER_PATH }}-${{ env.LATEST_GRADLE }}" \
+               "${{ env.GRADLE_FOLDER_PATH }}"
+            check_folder "${{ env.GRADLE_FOLDER_PATH }}"
+            check_folder "${{ env.GRADLE_FOLDER_PATH }}-${{ env.LATEST_GRADLE }}"
+          fi
+          #
+          check_folder "/tmp/"
+          check_folder "${{ env.GRADLE_FOLDER_PATH }}"
+          check_folder "${{ env.GRADLE_BIN_FOLDER_PATH }}"
+          check_file   "${{ env.GRADLE_BIN_PATH }}"
+          #
+          if [ ! -f "${{ env.GRADLE_BIN_PATH }}" ]; then
+            echo "Нет файла '${{ env.GRADLE_BIN_PATH }}' - фейлим построение отчёта."
+            exit 1
+          fi
+          #
+          rm $PATH_TO_SAVE_ZIP
+
+      - name: Patch Gradle project for R8 Configuration Analyzer
+        continue-on-error: true
+        id: patch_gradle_project_for_R8
+        if: always() && steps.setup_latest_Gradle.outcome == 'success'
+        run: |
+          # Меняем владельца на runner
+          sudo chown -R runner:runner "${{ env.GRADLE_PROJECT }}"
+          #
+          source .github/scripts/helpers.sh
+          #
+          # Обновляем Gradle до latest версии
+          check_folder  ${{ env.GRADLE_PROJECT }}
+          check_folder "${{ env.GRADLE_PROJECT }}/gradle/"
+          check_folder "${{ env.GRADLE_PROJECT }}/gradle/wrapper/"
+          cat_file     "${{ env.GRADLE_PROJECT }}/gradle/wrapper/gradle-wrapper.properties"
+          sed -i 's|distributionUrl=.*|distributionUrl=https\\://services.gradle.org/distributions/gradle-${{ env.LATEST_GRADLE }}-bin.zip|' \
+            "${{ env.GRADLE_PROJECT }}/gradle/wrapper/gradle-wrapper.properties"
+          cat_file "${{ env.GRADLE_PROJECT }}/gradle/wrapper/gradle-wrapper.properties"
+          #
+          # Обновляем AGP до 9.3.0
+          cat_file "${{ env.GRADLE_PROJECT }}/build.gradle"
+          sed -i "s|id 'com.android.application' version '9.0.1'|id 'com.android.application' version '9.3.0'|" \
+            "${{ env.GRADLE_PROJECT }}/build.gradle"
+          cat_file "${{ env.GRADLE_PROJECT }}/build.gradle"
+          sed -i "s|id 'com.android.library' version '9.0.1'|id 'com.android.library' version '9.3.0'|" \
+            "${{ env.GRADLE_PROJECT }}/build.gradle"
+          cat_file "${{ env.GRADLE_PROJECT }}/build.gradle"
+          #
+          echo "=== gradle-wrapper.properties ==="
+          cat_file "${{ env.GRADLE_PROJECT }}/gradle/wrapper/gradle-wrapper.properties"
+          echo "=== build.gradle ==="
+          cat_file "${{ env.GRADLE_PROJECT }}/build.gradle"
+          #
+          check_folder ${{ env.GH_WS_R8PATH }}
+          rm -rf       ${{ env.GH_WS_R8PATH }}
+          check_folder ${{ env.GH_WS_R8PATH }}
+          mkdir -p     ${{ env.GH_WS_R8PATH }}
+          check_folder ${{ env.GH_WS_R8PATH }}
+          #
+          check_folder ${{ env.TMP_R8_ANALYSIS_PATH }}
+          rm -rf       ${{ env.TMP_R8_ANALYSIS_PATH }}
+          check_folder ${{ env.TMP_R8_ANALYSIS_PATH }}
+          mkdir -p     ${{ env.TMP_R8_ANALYSIS_PATH }}
+          check_folder ${{ env.TMP_R8_ANALYSIS_PATH }}
+
+      - name: Fix SDK/NDK paths for R8 analyzer
+        continue-on-error: true
+        id: fix_sdk_ndk_paths_for_R8
+        if: always() && steps.patch_gradle_project_for_R8.outcome == 'success'
+        run: |
+          source .github/scripts/helpers.sh
+          #
+          check_folder "${{ env.GRADLE_PROJECT }}/"
+          #
+          # Исправляем SDK path
+          cat_file "${{ env.GRADLE_PROJECT }}/local.properties"
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > "${{ env.GRADLE_PROJECT }}/local.properties"
+          cat_file "${{ env.GRADLE_PROJECT }}/local.properties"
+          #
+          check_folder $ANDROID_SDK_ROOT/ndk/
+          # Находим доступный NDK на раннере
+          echo "=== $ANDROID_SDK_ROOT/ndk/* ==="
+          ls -d     $ANDROID_SDK_ROOT/ndk/* 2>/dev/null
+          echo "=== $ANDROID_SDK_ROOT/ndk/* 2>/dev/null | sort -V ==="
+          ls -d     $ANDROID_SDK_ROOT/ndk/* 2>/dev/null | sort -V
+          echo "====================================================="
+          #NDK_PATH=$(ls -d $ANDROID_SDK_ROOT/ndk/* 2>/dev/null | sort -V | tail -1)
+          # Используем конкретно 28.2.x:
+          NDK_PATH="/usr/local/lib/android/sdk/ndk/28.2.13676358"
+          echo "Found NDK: $NDK_PATH"
+          #
+          # Патчим ndkPath во ВСЕХ build.gradle
+          find "${{ env.GRADLE_PROJECT }}" -name "build.gradle" | while read f; do
+            echo "Patching $f..."
+            cat_file $f
+            sed -i "s|ndkPath \"[^\"]*\"|ndkPath \"$NDK_PATH\"|g" "$f"
+            echo "Patched $f."
+            cat_file $f
+          done
+          #
+          # Убираем ndkVersion - пусть берёт из найденного NDK
+          find "${{ env.GRADLE_PROJECT }}" -name "build.gradle" | while read f; do
+            echo "Убираем ndkVersion из $f..."
+            cat_file $f
+            sed -i '/ndkVersion/d' "$f"
+            echo "Patched $f."
+            cat_file $f
+          done
+          #
+          # Удаляем ненужные для анализа скрипты символов
+          sed -i '/apply from.*setupSymbols/d'     "${{ env.GRADLE_PROJECT }}/launcher/build.gradle"
+          sed -i '/apply from.*keepUnitySymbols/d' "${{ env.GRADLE_PROJECT }}/launcher/build.gradle"
+          #
+          echo "=== local.properties ==="
+          cat_file "${{ env.GRADLE_PROJECT }}/local.properties"
+          echo "=== build.gradle ==="
+          cat_file "${{ env.GRADLE_PROJECT }}/launcher/build.gradle"
+          echo "=== ndkPath line ==="
+          grep -rn "ndkPath" "${{ env.GRADLE_PROJECT }}" --include="*.gradle" || true
+          echo "====================================================="
+          echo "=== ndkVersion line ==="
+          grep -rn "ndkVersion" "${{ env.GRADLE_PROJECT }}" --include="*.gradle" || true
+          echo "====================================================="
+          echo "=== apply from lines ===" 
+          grep -n "apply from" "${{ env.GRADLE_PROJECT }}/launcher/build.gradle" || true
+          echo "====================================================="
+          #
+          #grep -n  "ndkVersion" "${{ env.GRADLE_PROJECT }}/shared/common.gradle" || true
+          #grep -n  "ndkPath"    "${{ env.GRADLE_PROJECT }}/shared/common.gradle" || true
+          #grep -rn "ndkVersion" "${{ env.GRADLE_PROJECT }}" 2>/dev/null || true  # без --include, все файлы
+          #grep -rn "ndkPath"    "${{ env.GRADLE_PROJECT }}" 2>/dev/null || true  # без --include, все файлы
+          #echo "====================================================="
+          #
+          # Заменяем Docker-путь на реальный путь хост-раннера
+          sed -i "s|/github/workspace|${{ github.workspace }}|g" "${{ env.GRADLE_PROJECT }}/settings.gradle"
+          #
+          echo "=== settings.gradle maven repos ==="
+          grep -A2 "maven" "${{ env.GRADLE_PROJECT }}/settings.gradle"
+          #echo "====================================================="
+
+      - name: Run R8 Configuration Analyzer
+        continue-on-error: true
+        id: run_R8_configuration_analyzer
+        if: always() && steps.fix_sdk_ndk_paths_for_R8.outcome == 'success'
+        run: |
+          echo "=== GRADLE_OPTS ==="
+          echo "${{ env.GRADLE_OPTS }}"
+          echo "====================================================="
+          #
+          cd   ${{ env.GRADLE_PROJECT }}
+          time ${{ env.GRADLE_BIN_PATH }} :launcher:analyzeReleaseR8Config --no-daemon
+
+      - name: Post 'R8 Configuration Analyzer' info
+        timeout-minutes: 1
+        continue-on-error: true
+        if: always() && steps.setup_latest_Gradle.outcome != 'skipped'
+        run: |
+          echo "##### 'R8 Configuration Analyzer' Step Info" >> $GITHUB_STEP_SUMMARY
+          echo "- Setup latest Gradle: \`${{ steps.setup_latest_Gradle.outcome }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Patch Gradle project for R8 Configuration Analyzer: \`${{ steps.patch_gradle_project_for_R8.outcome }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Fix SDK/NDK paths for R8 analyzer: \`${{ steps.fix_sdk_ndk_paths_for_R8.outcome }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Run R8 Configuration Analyzer: \`${{ steps.run_R8_configuration_analyzer.outcome }}\`" >> $GITHUB_STEP_SUMMARY
+
+      - name: 🗜️ Upload Gradle Problems Report (gradle stage)
+        continue-on-error: true
+        timeout-minutes: 1
+        if: always() && steps.run_R8_configuration_analyzer.outcome != 'skipped'
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-east-1
+          R2_BUCKET: ${{ secrets.R2_BUCKET_NAME }}
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+        run: |
+          REPORTS_DIR="${{ env.GRADLE_PROBLEM_REPORT_FOLDER }}"
+          if [ ! -d "$REPORTS_DIR" ]; then
+            echo "'$REPORTS_DIR' folder not found, skipping uploading it to R2."
+          fi
+          #
+          source .github/scripts/helpers.sh
+          check_folder $REPORTS_DIR
+          #
+          nonZeroFiles=$(find $REPORTS_DIR -type f -size +0 | wc -l)
+          if [ "$nonZeroFiles" -le 0 ]; then
+            echo "'$REPORTS_DIR' folder is empty, skipping uploading it to R2."
+          fi
+          #
+          archive_name="${{ env.VERSIONnExt }}.Gradle_Problems_Report_gradle_stage.7z"
+          compress_7z "$REPORTS_DIR" "$archive_name" 9
+          time aws s3 cp "$archive_name" "s3://$R2_BUCKET/${{ env.ANDROID_VERSION_CODE }}/$archive_name" --endpoint-url $R2_ENDPOINT --quiet
+
+      - name: 🗜️ Upload R8 Configuration Analyzer Report
+        continue-on-error: true
+        timeout-minutes: 1
+        if: always() && steps.run_R8_configuration_analyzer.outcome != 'skipped'
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-east-1
+          R2_BUCKET: ${{ secrets.R2_BUCKET_NAME }}
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+        run: |
+          REPORTS_DIR="${{ env.GRADLE_REPORTS_FOLDER }}"
+          if [ ! -d "$REPORTS_DIR" ]; then
+            echo "'$REPORTS_DIR' folder not found, skipping uploading it to R2."
+            exit 1
+          fi
+          #
+          source .github/scripts/helpers.sh
+          check_folder $REPORTS_DIR
+          #
+          nonZeroFiles=$(find $REPORTS_DIR -type f -size +0 | wc -l)
+          if [ "$nonZeroFiles" -le 0 ]; then
+            echo "'$REPORTS_DIR' folder is empty, skipping uploading it to R2."
+            exit 1
+          fi
+          #
+          archive_name="${{ env.VERSIONnExt }}.R8_Configuration_Analyzer_Report.7z"
+          compress_7z "$REPORTS_DIR" "$archive_name" 9
+          time aws s3 cp "$archive_name" "s3://$R2_BUCKET/${{ env.ANDROID_VERSION_CODE }}/$archive_name" --endpoint-url $R2_ENDPOINT --quiet
+
+      - name: 🗜️ Upload R8 Configuration Analysis
+        continue-on-error: true
+        timeout-minutes: 1
+        if: always() && steps.run_R8_configuration_analyzer.outcome != 'skipped'
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-east-1
+          R2_BUCKET: ${{ secrets.R2_BUCKET_NAME }}
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+        run: |
+          REPORTS_DIR="${{ env.GH_WS_R8PATH }}/"
+          if [ ! -d "$REPORTS_DIR" ]; then
+            echo "'$REPORTS_DIR' folder not found, skipping uploading it to R2."
+            exit 1
+          fi
+          #
+          source .github/scripts/helpers.sh
+          check_folder $REPORTS_DIR
+          #
+          nonZeroFiles=$(find $REPORTS_DIR -type f -size +0 | wc -l)
+          if [ "$nonZeroFiles" -le 0 ]; then
+            echo "'$REPORTS_DIR' folder is empty, skipping uploading it to R2."
+            exit 1
+          fi
+          #
+          archive_name="${{ env.VERSIONnExt }}.gh_ws_r8_gradle_stage.7z"
+          compress_7z "$REPORTS_DIR" "$archive_name" 9
+          time aws s3 cp "$archive_name" "s3://$R2_BUCKET/${{ env.ANDROID_VERSION_CODE }}/$archive_name" --endpoint-url $R2_ENDPOINT --quiet
+
+      - name: Check ${{ env.GH_WS_R8PATH }}
+        continue-on-error: true
+        timeout-minutes: 1
+        if: always() && steps.run_R8_configuration_analyzer.outcome != 'skipped'
+        run: |
+          source .github/scripts/helpers.sh
+          check_folder ${{ env.GH_WS_R8PATH }}
+
+      - name: 🗜️ Upload R8 Configuration Analyzer Report (gradle stage)
+        continue-on-error: true
+        timeout-minutes: 1
+        if: always() && steps.run_R8_configuration_analyzer.outcome != 'skipped'
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-east-1
+          R2_BUCKET: ${{ secrets.R2_BUCKET_NAME }}
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+        run: |
+          REPORTS_DIR="${{ env.TMP_R8_ANALYSIS_PATH }}"
+          if [ ! -d "$REPORTS_DIR" ]; then
+            echo "'$REPORTS_DIR' folder not found, skipping uploading it to R2."
+            exit 1
+          fi
+          #
+          source .github/scripts/helpers.sh
+          check_folder $REPORTS_DIR
+          #
+          nonZeroFiles=$(find $REPORTS_DIR -type f -size +0 | wc -l)
+          if [ "$nonZeroFiles" -le 0 ]; then
+            echo "'$REPORTS_DIR' folder is empty, skipping uploading it to R2."
+            exit 1
+          fi
+          #
+          archive_name="${{ env.VERSIONnExt }}.tmp_r8_gradle_stage.7z"
+          compress_7z "$REPORTS_DIR" "$archive_name" 9
+          time aws s3 cp "$archive_name" "s3://$R2_BUCKET/${{ env.ANDROID_VERSION_CODE }}/$archive_name" --endpoint-url $R2_ENDPOINT --quiet
+
+      - name: 🗜️ Find and upload r8.json
+        continue-on-error: true
+        timeout-minutes: 1
+        if: always() && steps.run_R8_configuration_analyzer.outcome != 'skipped'
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-east-1
+          R2_BUCKET: ${{ secrets.R2_BUCKET_NAME }}
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+        run: |
+          DIR="${{ github.workspace }}"
+          #
+          if [ ! -d "$DIR" ]; then
+            echo "'$DIR' folder not found, skipping uploading it to R2."
+            exit 1
+          fi
+          #
+          source .github/scripts/helpers.sh
+          #
+          echo "=== 'r8.json' files in '$DIR' ==="
+          find $DIR -type f \( -iname "*r8.json*" \) 2>/dev/null
+          echo "================================="
+          #
+          archive_name="r8.json_in_gh_ws.zip"
+          find $DIR -type f \( -iname "*r8.json*" \) | zip $archive_name -@
+          #
+          time aws s3 cp "$archive_name" "s3://$R2_BUCKET/${{ env.ANDROID_VERSION_CODE }}/$archive_name" --endpoint-url $R2_ENDPOINT --quiet
 
       - name: 🗜️ Find and upload proguard.txt for ads-mobile-sdk
         continue-on-error: true
@@ -558,35 +1037,6 @@ jobs:
           #
           archive_name="proguard_in_gh_ws.zip"
           find $DIR -type f \( -iname "*proguard.txt*" \) | zip $archive_name -@
-          #
-          time aws s3 cp "$archive_name" "s3://$R2_BUCKET/${{ env.ANDROID_VERSION_CODE }}/$archive_name" --endpoint-url $R2_ENDPOINT --quiet
-
-      - name: 🗜️ Find and upload 'AndroidManifest.xml'
-        continue-on-error: true
-        timeout-minutes: 5
-        if: always() && steps.buildStep.outcome != 'skipped'
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: us-east-1
-          R2_BUCKET: ${{ secrets.R2_BUCKET_NAME }}
-          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
-        run: |
-          DIR="${{ github.workspace }}"
-          #
-          if [ ! -d "$DIR" ]; then
-            echo "'$DIR' folder not found, skipping uploading it to R2."
-            exit 1
-          fi
-          #
-          source .github/scripts/helpers.sh
-          #
-          echo "=== '*AndroidManifest.xml*' files in '$DIR' ==="
-          find $DIR -type f \( -iname "*AndroidManifest.xml*" \) 2>/dev/null
-          echo "================================="
-          #
-          archive_name="AndroidManifest_in_gh_ws.zip"
-          find $DIR -type f \( -iname "*AndroidManifest.xml*" \) | zip $archive_name -@
           #
           time aws s3 cp "$archive_name" "s3://$R2_BUCKET/${{ env.ANDROID_VERSION_CODE }}/$archive_name" --endpoint-url $R2_ENDPOINT --quiet
 
