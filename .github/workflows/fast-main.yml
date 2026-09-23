@@ -216,7 +216,15 @@ jobs:
           PROJECT_SETTINGS_FILE: ${{ env.PROJECT_SETTINGS_FILE }}
         run: |
           CUSTOM_VER="${{ inputs.custom_build_version }}"
+          echo "CUSTOM_VER = '$CUSTOM_VER'"
           #
+          if [ -f "${{ env.PROJECT_SETTINGS_FILE }}" ]; then
+            local full_path=$(readlink -f "${{ env.PROJECT_SETTINGS_FILE }}" 2>/dev/null || echo "${{ env.PROJECT_SETTINGS_FILE }}")
+            local size=$(du -sh "${{ env.PROJECT_SETTINGS_FILE }}" 2>/dev/null | cut -f1 || echo "N/A")
+            echo "✅ 🗃️ check '${{ env.PROJECT_SETTINGS_FILE }}' ($full_path) (Size: $size)."
+          else
+            echo "❌ 🗃️ No '${{ env.PROJECT_SETTINGS_FILE }}'."
+          fi
           DEST="${{ env.PROJECT_SETTINGS_FILE }}"
           cp "$DEST" "$DEST.bak"
           #
