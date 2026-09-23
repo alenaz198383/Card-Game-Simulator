@@ -217,22 +217,8 @@ jobs:
         run: |
           CUSTOM_VER="${{ inputs.custom_build_version }}"
           #
-          echo "---1"
-          ls ./
-          echo "---2"
-          ls ProjectSettings/
-          echo "---3"
-          if [ -f "${{ env.PROJECT_SETTINGS_FILE }}" ]; then
-            local full_path=$(readlink -f "${{ env.PROJECT_SETTINGS_FILE }}" 2>/dev/null || echo "${{ env.PROJECT_SETTINGS_FILE }}")
-            local size=$(du -sh "${{ env.PROJECT_SETTINGS_FILE }}" 2>/dev/null | cut -f1 || echo "N/A")
-            echo "✅ 🗃️ check '${{ env.PROJECT_SETTINGS_FILE }}' ($full_path) (Size: $size)."
-          else
-            echo "❌ 🗃️ No '${{ env.PROJECT_SETTINGS_FILE }}'."
-          fi
-          echo "---4"
           DEST="${{ env.PROJECT_SETTINGS_FILE }}"
           cp "$DEST" "$DEST.bak"
-          echo "---5"
           #
           # --- Логика для VERSION (buildVersion.txt) ---
           if [ -n "$CUSTOM_VER" ]; then
