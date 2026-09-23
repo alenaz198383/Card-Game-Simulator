@@ -1,0 +1,396 @@
+name: Fast build with GameCI
+
+permissions:
+  actions: write # To cancel runs (gh run cancel) and delete the cache
+  checks: write
+  contents: read # To read the code
+  pull-requests: read # To check for PR (gh pr list)
+
+concurrency: unity
+env:
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  DOTNET_NOLOGO: true
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+  PROJECT_SETTINGS_FILE: 'ProjectSettings/ProjectSettings.asset'
+on:
+  release:
+    types:
+      - published
+  workflow_dispatch:
+    inputs:
+      use_cached_library:
+        description: 'Use cached Library'
+        type: boolean
+        default: true
+      restore_cache_from_R2:
+        description: 'Restore cache from R2'
+        type: boolean
+        default: true
+      android_export_type:
+        description: 'Android Export Types'
+        type: choice
+        options:
+          - both
+          - apk
+          - aab
+        default: apk
+      custom_build_version:
+        description: 'Версия сборки (формат 1.2.3)'
+        required: false
+        type: string
+        default: ''
+
+jobs:
+  check_secrets:
+    name: 🔑🩺 Check GitHub Secrets
+    timeout-minutes: 3
+    if: |
+      !contains(fromJSON('["dependabot", "renovate"]'), github.actor) &&
+      !startsWith(github.event.pull_request.title, 'chore(deps') &&
+      !startsWith(github.event.pull_request.title, 'fix(deps')
+    runs-on: ubuntu-24.04
+    # runs-on: self-hosted
+    steps:
+      - name: 🔑 Check Unity license
+        timeout-minutes: 1
+        id: checklicense
+        env:
+          UNITY_SERIAL_PERSONAL: ${{ secrets.UNITY_SERIAL_PERSONAL }}
+          UNITY_EMAIL_PERSONAL: ${{ secrets.UNITY_EMAIL_PERSONAL }}
+          UNITY_PASSWORD_PERSONAL: ${{ secrets.UNITY_PASSWORD_PERSONAL }}
+        run: |
+          missing_secrets=""
+          [ -z "$UNITY_SERIAL_PERSONAL" ] && missing_secrets="$missing_secrets UNITY_SERIAL_PERSONAL"
+          [ -z "$UNITY_EMAIL_PERSONAL" ] && missing_secrets="$missing_secrets UNITY_EMAIL_PERSONAL"
+          [ -z "$UNITY_PASSWORD_PERSONAL" ] && missing_secrets="$missing_secrets UNITY_PASSWORD_PERSONAL"
+          if [ -z "$missing_secrets" ]; then
+            echo "✅ All required 'UNITY_' secrets are present"
+          else
+            echo "❌ Missing 'UNITY_' secrets:$missing_secrets"
+            exit 1
+          fi
+
+      - name: 🩺 Check 'ANDROID_' secrets
+        timeout-minutes: 1
+        id: check_android_secrets
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASS: ${{ secrets.ANDROID_KEYSTORE_PASS }}
+          ANDROID_KEYALIAS_PASS: ${{ secrets.ANDROID_KEYALIAS_PASS }}
+        run: |
+          missing_secrets=""
+          [ -z "$ANDROID_KEYSTORE_BASE64" ] && missing_secrets="$missing_secrets ANDROID_KEYSTORE_BASE64"
+          [ -z "$ANDROID_KEYSTORE_PASS" ] && missing_secrets="$missing_secrets ANDROID_KEYSTORE_PASS"
+          [ -z "$ANDROID_KEYALIAS_PASS" ] && missing_secrets="$missing_secrets ANDROID_KEYALIAS_PASS"
+          if [ -z "$missing_secrets" ]; then
+            echo "✅ All required 'ANDROID_' secrets are present"
+          else
+            echo "❌ Missing 'ANDROID_' secrets:$missing_secrets"
+            exit 1
+          fi
+
+  buildAndroid:
+    name: 🦺 Build ${{ matrix.exportMode }} for Android
+    runs-on: ubuntu-24.04
+    needs: [check_secrets]
+    strategy:
+      fail-fast: false
+      matrix:
+        exportMode: ${{ (github.event_name == 'workflow_dispatch' && inputs.android_export_type == 'apk' && fromJSON('["apk"]')) || (github.event_name == 'workflow_dispatch' && inputs.android_export_type == 'aab' && fromJSON('["aab"]')) || fromJSON('["apk", "aab"]') }}
+    outputs:
+      buildVersion: ${{ steps.buildStep.outputs.buildVersion }}
+    timeout-minutes: 90
+    steps:
+      - name: Start timestamp
+        continue-on-error: true
+        timeout-minutes: 1
+        if: always()
+        run: |
+          date -u
+          df -h
+          free -h || true
+
+      - name: Get runner info
+        continue-on-error: true
+        timeout-minutes: 1
+        if: always()
+        run: |
+          echo "############### Get OS and Hardware info step ###############"
+          echo "=== ОС и ядро ==="
+          cat /etc/os-release
+          echo "=== ОС и ядро ==="
+          cat /etc/os-release | grep -E "^(NAME|VERSION)="
+          uname -r
+          echo "=== Версия Ubuntu ==="
+          lsb_release -a
+          #
+          echo -e "\n=== Память ==="
+          free -h
+          #Покажет:
+          #    total — всего памяти.
+          #    used / available — сколько занято и сколько доступно.
+          #    buff/cache — память, используемая под кэш и буферы (это нормально и полезно).
+          echo -e "\n=== Память ==="
+          cat /proc/meminfo
+          #
+          echo -e "\n=== Swap ==="
+          swapon --show || echo "Swap не настроен"
+          #echo -e "\n=== Swap ==="
+          #cat_file /proc/swaps
+          #
+          echo -e "\n=== CPU ==="
+          lscpu # lscpu — подробная информация: модель CPU, количество сокетов, ядер на сокет, потоков, архитектура и т. п.
+          echo -e "\n=== CPU ==="
+          nproc # nproc — количество доступных процессорных ядер (то, что видит планировщик ОС).
+          lscpu | grep -E "^(Model\ name|Socket|Core|Thread)"
+          echo -e "\n=== Ядро и архитектура ==="
+          uname -a
+          echo -e "\n=== CPU ==="
+          uname -m
+          echo -e "\n=== CPU ==="
+          cat /proc/cpuinfo
+          #
+          echo -e "\n=== Диски ==="
+          lsblk
+
+      - name: Deps
+        timeout-minutes: 2
+        run: |
+          if ! command -v 7z >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y p7zip-full
+          fi
+
+      - name: Free Disk Space
+        timeout-minutes: 6
+        #v.1.3.1 - https://github.com/jlumbroso/free-disk-space/releases
+        uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be
+        if: github.event_name == 'workflow_dispatch' && !inputs.restore_cache_from_R2
+        with:
+          tool-cache: true
+
+      - name: Checkout Repository
+        timeout-minutes: 2
+        #v7.0.1 - https://github.com/actions/checkout/releases
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        if: github.event_name == 'workflow_dispatch' && !inputs.restore_cache_from_R2
+        with:
+          fetch-depth: 0
+
+      - name: Restore cache from R2
+        timeout-minutes: 1
+        id: restore_cache_r2
+        if: github.event_name == 'workflow_dispatch' && inputs.restore_cache_from_R2
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-east-1
+          R2_BUCKET: ${{ secrets.R2_BUCKET_NAME }}
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+        run: |
+          cd ..
+          if aws s3 cp "s3://$R2_BUCKET/cache.zip" cache.zip --endpoint-url $R2_ENDPOINT --quiet; then
+            echo "Cache found, extracting..."
+            unzip -q cache.zip -d ./Card-Game-Simulator_new/ && rm cache.zip
+          else
+            echo "Cache not found. Nothing to download - stop the job."
+            exit 1
+          fi
+          rm -rf Card-Game-Simulator/
+          mv Card-Game-Simulator_new/ Card-Game-Simulator/
+          cd ./Card-Game-Simulator/
+
+      - name: Cache Library
+        timeout-minutes: 3
+        #v6.1.0 - https://github.com/actions/cache/releases
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+        with:
+          path: Library
+          key: Library-Android-${{ hashFiles('Packages/manifest.json', 'Packages/packages-lock.json', 'ProjectSettings/ProjectSettings.asset', 'ProjectSettings/ProjectVersion.txt', 'Assets/Settings/Build Profiles/Android_Release_APK.asset', 'Assets/Settings/Build Profiles/Android_Release_AAB.asset') }}-${{ matrix.exportMode == 'apk' && 'apk' || 'aab' }}${{ inputs.use_cached_library == true && '' || '-new' }}
+          restore-keys: |
+            Library-Android-${{ hashFiles('Packages/manifest.json', 'Packages/packages-lock.json', 'ProjectSettings/ProjectSettings.asset', 'ProjectSettings/ProjectVersion.txt', 'Assets/Settings/Build Profiles/Android_Release_APK.asset', 'Assets/Settings/Build Profiles/Android_Release_AAB.asset') }}-${{ inputs.use_cached_library == true && '' || '-dontusecache' }}
+
+      - name: Extract Build Versions (File or Input)
+        timeout-minutes: 1
+        env:
+          PROJECT_SETTINGS_FILE: ${{ env.PROJECT_SETTINGS_FILE }}
+        run: |
+          source .github/scripts/helpers.sh
+          CUSTOM_VER="${{ inputs.custom_build_version }}"
+          #
+          DEST="${{ env.PROJECT_SETTINGS_FILE }}"
+          cp "$DEST" "$DEST.bak"
+          #
+          set_define_symbols
+          tune_UniversalRenderPipelineGlobalSettings
+          remove_ttf_files
+          #
+          mkdir -p ${{ env.GH_WS_R8PATH }}
+          mkdir -p ${{ env.TMP_R8_ANALYSIS_PATH }}
+          #
+          rm -rf Assets/PlayModeTests/
+          rm -rf Assets/Scripts/EditModeTests/
+          #
+          # --- Логика для VERSION (buildVersion.txt) ---
+          if [ -n "$CUSTOM_VER" ]; then
+            echo "Using custom build version from input: $CUSTOM_VER"
+            BUILD_VERSION="$CUSTOM_VER"
+            #
+            # 2. Валидация формата X.Y.Z (три числа через точку)
+            # Регулярка проверяет: начало строки, число, точка, число, точка, число, конец строки
+            if ! [[ "$BUILD_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              echo "Error: Invalid version format '$BUILD_VERSION'. Expected format is X.Y.Z (e.g., 1.2.3)" >&2
+              exit 1
+            fi
+            #
+            # 3. Парсим X, Y, Z
+            # Используем IFS (Internal Field Separator) для разбиения строки по точке
+            IFS='.' read -r X Y Z <<< "$BUILD_VERSION"
+            #
+            # На всякий случай проверяем, что переменные не пустые (защита от странных багов)
+            if [ -z "$X" ] || [ -z "$Y" ] || [ -z "$Z" ]; then
+              echo "Error: Failed to parse version components from '$BUILD_VERSION'" >&2
+              echo "major: $X"
+              echo "minor: $Y"
+              echo "patch: $Z"
+              exit 1
+            fi
+            #
+            # 4. Вычисляем ANDROID_VERSION_CODE
+            ANDROID_CODE=$((X * 1000000 + Y * 1000 + Z))
+            #
+            echo "Parsed components: X=$X, Y=$Y, Z=$Z"
+            echo "Calculated ANDROID_VERSION_CODE: $ANDROID_CODE"
+          else
+            ANDROID_CODE=$(cat ProjectSettings/androidVersionCode.txt | tr -d '[:space:]')
+            BUILD_VERSION=$(cat ProjectSettings/buildVersion.txt | tr -d '[:space:]')
+          fi
+          #
+          sed -i "s/^  bundleVersion: .*/  bundleVersion: $BUILD_VERSION/" "$DEST"
+          sed -i "s/^  AndroidBundleVersionCode: .*/  AndroidBundleVersionCode: $ANDROID_CODE/" "$DEST"
+          #
+          PROJECT_BUILD_VERSION=$(grep -oP 'bundleVersion:\s*\K[\d.]+'        ${{ env.PROJECT_SETTINGS_FILE }})
+          PROJECT_ANDROID_CODE=$(grep -oP 'AndroidBundleVersionCode:\s*\K\d+' ${{ env.PROJECT_SETTINGS_FILE }})
+          #
+          echo "VERSION=$PROJECT_BUILD_VERSION"                              >> "$GITHUB_ENV"
+          echo "ANDROID_VERSION_CODE=$PROJECT_ANDROID_CODE"                  >> "$GITHUB_ENV"
+          echo "VERSIONnExt=$PROJECT_ANDROID_CODE.${{ matrix.exportMode }}"  >> "$GITHUB_ENV"
+          echo "fullVERSIONnMODE=$PROJECT_ANDROID_CODE.${{ matrix.exportMode }}" >> "$GITHUB_ENV"
+
+      - name: Show Using Variables
+        timeout-minutes: 1
+        run: |
+          echo "=== Env vars: ==="
+          echo "VERSION:                ${{ env.VERSION }}"
+          echo "ANDROID_VERSION_CODE:   ${{ env.ANDROID_VERSION_CODE }}"
+          echo "VERSIONnExt:            ${{ env.VERSIONnExt }}"
+          echo "fullVERSIONnMODE:       ${{ env.fullVERSIONnMODE }}"
+          echo "PROJECT_SETTINGS_FILE:  ${{ env.PROJECT_SETTINGS_FILE }}"
+          echo ""
+          echo "=== Inputs: ==="
+          echo "use_cached_library:    ${{ inputs.use_cached_library }}"
+          echo "restore_cache_from_R2: ${{ inputs.restore_cache_from_R2 }}"
+          echo "custom_build_version:  ${{ inputs.custom_build_version }}"
+          echo "android_export_type:   ${{ inputs.android_export_type }}"
+
+      - name: Before build timestamp
+        continue-on-error: true
+        timeout-minutes: 1
+        if: always()
+        run: |
+          date -u
+          df -h
+          free -h || true
+
+      - name: 🦺 Build Android ${{ matrix.exportMode }}
+        timeout-minutes: 90
+        id: buildStep
+        #v.5.0.1 - https://github.com/game-ci/unity-builder/releases
+        uses: game-ci/unity-builder@adaf7cd8f42fd48fbbf2d4f5f67ca30d87f819f1
+        env:
+          USYM_UPLOAD_AUTH_TOKEN: ${{ secrets.USYM_UPLOAD_AUTH_TOKEN }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL_PERSONAL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD_PERSONAL }}
+          UNITY_SERIAL: ${{ secrets.UNITY_SERIAL_PERSONAL }}
+        with:
+          targetPlatform: Android
+          allowDirtyBuild: true
+          versioning: Custom
+          version: ${{ env.VERSION }}
+          androidVersionCode: ${{ env.ANDROID_VERSION_CODE }}
+          buildProfile: ${{ matrix.exportMode == 'apk' && 'Assets/Settings/Build Profiles/Android_Release_APK.asset' || 'Assets/Settings/Build Profiles/Android_Release_AAB.asset' }}
+          androidExportType: ${{ matrix.exportMode == 'apk' && 'androidPackage' || 'androidAppBundle' }}
+          androidKeystoreName: 'my-release-key.jks'
+          androidKeystoreBase64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          androidKeystorePass: ${{ secrets.ANDROID_KEYSTORE_PASS }}
+          androidKeyaliasName: my-key-alias
+          androidKeyaliasPass: ${{ secrets.ANDROID_KEYALIAS_PASS }}
+          androidTargetSdkVersion: AndroidApiLevel36
+
+      - name: After build timestamp
+        timeout-minutes: 1
+        continue-on-error: true
+        if: always() && steps.buildStep.outcome != 'skipped'
+        run: |
+          date -u
+          df -h
+          free -h || true
+
+      - name: 🗜️ Upload Build to R2
+        timeout-minutes: 2
+        continue-on-error: true
+        if: steps.buildStep.outcome != 'skipped'
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-east-1
+          R2_BUCKET: ${{ secrets.R2_BUCKET_NAME }}
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+        run: |
+          if [ ! -d "build/Android" ]; then
+            echo "'build/Android' folder not found, skipping '${{ matrix.exportMode }}' save."
+            exit 1
+          fi
+          #
+          source .github/scripts/helpers.sh
+          DIR="artifacts/build/Android"
+          SRC="${DIR}/Android.${{ matrix.exportMode }}"
+          DEST="${DIR}/${{ env.fullVERSIONnMODE }}"
+          mkdir -p artifacts
+          cp -r "build/" "artifacts/"
+          mv "$SRC" "$DEST"
+          #
+          zst_file_name="${{ env.fullVERSIONnMODE }}.tar.zst"
+          compress_zstd "$DIR" "artifacts/$zst_file_name" 9
+          echo "Uploading '$zst_file_name' to R2..."
+          time aws s3 cp "artifacts/$zst_file_name" "s3://$R2_BUCKET/${{ env.ANDROID_VERSION_CODE }}/$zst_file_name" --endpoint-url $R2_ENDPOINT --quiet
+          echo "Uploading completed."
+
+      - name: Post android build info
+        timeout-minutes: 1
+        continue-on-error: true
+        if: always() && steps.buildStep.outcome != 'skipped'
+        run: |
+          echo "##### Build Step Info" >> $GITHUB_STEP_SUMMARY
+          echo "- Project Version (buildVersion): \`${{ steps.buildStep.outputs.buildVersion }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Android Version Code: \`${{ steps.buildStep.outputs.androidVersionCode }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Build Step Exit Code: \`${{ steps.buildStep.outputs.engineExitCode }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Build Step outcome: \`${{ steps.buildStep.outcome }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Build Step conclusion: \`${{ steps.buildStep.conclusion }}\`" >> $GITHUB_STEP_SUMMARY
+
+      - name: Revert '${{ env.PROJECT_SETTINGS_FILE }}'
+        timeout-minutes: 1
+        if: steps.buildStep.outcome == 'success'
+        run: |
+          DEST="${{ env.PROJECT_SETTINGS_FILE }}"
+          rm "$DEST"
+          mv "$DEST.bak" "$DEST"
+
+      - name: Final timestamp
+        continue-on-error: true
+        timeout-minutes: 1
+        if: always()
+        run: |
+          date -u
+          df -h
+          free -h || true
