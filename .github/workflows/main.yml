@@ -280,6 +280,21 @@ jobs:
           restore-keys: |
             Library-Android-${{ hashFiles('Packages/manifest.json', 'Packages/packages-lock.json', 'ProjectSettings/ProjectSettings.asset', 'ProjectSettings/ProjectVersion.txt', 'Assets/Settings/Build Profiles/Android_Release_APK.asset', 'Assets/Settings/Build Profiles/Android_Release_AAB.asset') }}-${{ inputs.use_cached_library == true && '' || '-dontusecache' }}
 
+      - name: Check hash codes
+        timeout-minutes: 1
+        run: |
+          echo "=== Cache-key: ==="
+          echo "Full cache-key:                   ${{ hashFiles('Packages/manifest.json', 'Packages/packages-lock.json', 'ProjectSettings/ProjectSettings.asset', 'ProjectSettings/ProjectVersion.txt', 'Assets/Settings/Build Profiles/Android_Release_APK.asset', 'Assets/Settings/Build Profiles/Android_Release_AAB.asset') }}"
+          echo "Packages/:"
+          echo "    /manifest.json:               ${{ hashFiles('Packages/manifest.json') }}"
+          echo "    /packages-lock.json:          ${{ hashFiles('Packages/packages-lock.json') }}"
+          echo "ProjectSettings/:"
+          echo "    /ProjectSettings.asset:       ${{ hashFiles('ProjectSettings/ProjectSettings.asset') }}"
+          echo "    /ProjectVersion.txt:          ${{ hashFiles('ProjectSettings/ProjectVersion.txt') }}"
+          echo "Assets/Settings/Build Profiles/:"
+          echo "    /Android_Release_AAB.asset:   ${{ hashFiles('Assets/Settings/Build Profiles/Android_Release_AAB.asset') }}"
+          echo "    /Android_Release_APK.asset:   ${{ hashFiles('Assets/Settings/Build Profiles/Android_Release_APK.asset') }}"
+
       - name: Extract Build Versions (File or Input)
         timeout-minutes: 1
         env:
@@ -392,13 +407,6 @@ jobs:
           echo "Assets/Settings/Build Profiles/:"
           echo "    /Android_Release_AAB.asset:   ${{ hashFiles('Assets/Settings/Build Profiles/Android_Release_AAB.asset') }}"
           echo "    /Android_Release_APK.asset:   ${{ hashFiles('Assets/Settings/Build Profiles/Android_Release_APK.asset') }}"
-          echo ""
-          echo "Packages/manifest.json:                                   ${{ hashFiles('Packages/manifest.json') }}"
-          echo "Packages/packages-lock.json:                              ${{ hashFiles('Packages/packages-lock.json') }}"
-          echo "ProjectSettings/ProjectSettings.asset:                    ${{ hashFiles('ProjectSettings/ProjectSettings.asset') }}"
-          echo "ProjectSettings/ProjectVersion.txt:                       ${{ hashFiles('ProjectSettings/ProjectVersion.txt') }}"
-          echo "Assets/Settings/Build Profiles/Android_Release_AAB.asset: ${{ hashFiles('Assets/Settings/Build Profiles/Android_Release_AAB.asset') }}"
-          echo "Assets/Settings/Build Profiles/Android_Release_APK.asset: ${{ hashFiles('Assets/Settings/Build Profiles/Android_Release_APK.asset') }}"
 
       - name: 📈 Install sentry-cli
         timeout-minutes: 1
