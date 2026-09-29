@@ -426,15 +426,12 @@ jobs:
           df -h
           free -h || true
 
-      - name: 🦺 Build Android
+      - name: 🦺 Build Android ${{ matrix.exportMode }}
         timeout-minutes: 90
         id: buildStep
         #v.5.0.1 - https://github.com/game-ci/unity-builder/releases
         uses: game-ci/unity-builder@adaf7cd8f42fd48fbbf2d4f5f67ca30d87f819f1
         env:
-          ANDROID_KEYALIAS_PASS: ${{ secrets.ANDROID_KEYALIAS_PASS }}
-          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-          ANDROID_KEYSTORE_PASS: ${{ secrets.ANDROID_KEYSTORE_PASS }}
           USYM_UPLOAD_AUTH_TOKEN: ${{ secrets.USYM_UPLOAD_AUTH_TOKEN }}
           UNITY_EMAIL: ${{ secrets.UNITY_EMAIL_PERSONAL }}
           UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD_PERSONAL }}
@@ -443,21 +440,22 @@ jobs:
           SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
           SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
           SENTRY_SIZE_ANALYSIS_ENABLED: ${{ inputs.sentry_size_analysis_enabled && 'true' || 'false' }}
+          GRADLE_OPTS: ${{ env.GRADLE_OPTS }}
           R8_DUMP_KEEP_RADIUS: 'true'
         with:
           targetPlatform: Android
-          customParameters: -SENTRY_AUTH_TOKEN "$SENTRY_AUTH_TOKEN" -SENTRY_ORG "$SENTRY_ORG" -SENTRY_PROJECT "$SENTRY_PROJECT"
+          customParameters: -SENTRY_AUTH_TOKEN ${{ secrets.SENTRY_AUTH_TOKEN }} -SENTRY_ORG ${{ secrets.SENTRY_ORG }} -SENTRY_PROJECT ${{ secrets.SENTRY_PROJECT }}
           allowDirtyBuild: true
           versioning: Custom
-          version: $VERSION
-          androidVersionCode: $ANDROID_VERSION_CODE
+          version: ${{ env.VERSION }}
+          androidVersionCode: ${{ env.ANDROID_VERSION_CODE }}
           buildProfile: ${{ matrix.exportMode == 'apk' && 'Assets/Settings/Build Profiles/Android_Release_APK.asset' || 'Assets/Settings/Build Profiles/Android_Release_AAB.asset' }}
           androidExportType: ${{ matrix.exportMode == 'apk' && 'androidPackage' || 'androidAppBundle' }}
           androidKeystoreName: 'my-release-key.jks'
-          androidKeystoreBase64: '$ANDROID_KEYSTORE_BASE64'
-          androidKeystorePass: '$ANDROID_KEYSTORE_PASS'
+          androidKeystoreBase64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          androidKeystorePass: ${{ secrets.ANDROID_KEYSTORE_PASS }}
           androidKeyaliasName: my-key-alias
-          androidKeyaliasPass: '$ANDROID_KEYALIAS_PASS'
+          androidKeyaliasPass: ${{ secrets.ANDROID_KEYALIAS_PASS }}
           androidTargetSdkVersion: AndroidApiLevel36
 
       - name: After build timestamp
