@@ -303,9 +303,10 @@ jobs:
         env:
           CUSTOM_BUILD_VERSION: ${{ inputs.custom_build_version }}
           EXPORT_MODE: ${{ matrix.exportMode }}
-          SENTRY_CLI_OPTIONS: ${{ secrets.SENTRY_CLI_OPTIONS }}
-          PROJECT_SETTINGS_FILE: ${{ env.PROJECT_SETTINGS_FILE }}
-          STORE: ${{ matrix.store }}
+          IS_PRODUCTION: ${{ inputs.isProduction }} # helpers
+          SENTRY_CLI_OPTIONS: ${{ secrets.SENTRY_CLI_OPTIONS }} # helpers
+          PROJECT_SETTINGS_FILE: ${{ env.PROJECT_SETTINGS_FILE }} # helpers
+          STORE: ${{ matrix.store }} # helpers
         run: |
           source .github/scripts/helpers.sh
           CUSTOM_VER="$CUSTOM_BUILD_VERSION"
@@ -453,10 +454,10 @@ jobs:
           buildProfile: ${{ matrix.exportMode == 'apk' && 'Assets/Settings/Build Profiles/Android_Release_APK.asset' || 'Assets/Settings/Build Profiles/Android_Release_AAB.asset' }}
           androidExportType: ${{ matrix.exportMode == 'apk' && 'androidPackage' || 'androidAppBundle' }}
           androidKeystoreName: 'my-release-key.jks'
-          androidKeystoreBase64: "$ANDROID_KEYSTORE_BASE64"
-          androidKeystorePass: "$ANDROID_KEYSTORE_PASS"
+          androidKeystoreBase64: '$ANDROID_KEYSTORE_BASE64'
+          androidKeystorePass: '$ANDROID_KEYSTORE_PASS'
           androidKeyaliasName: my-key-alias
-          androidKeyaliasPass: "$ANDROID_KEYALIAS_PASS"
+          androidKeyaliasPass: '$ANDROID_KEYALIAS_PASS'
           androidTargetSdkVersion: AndroidApiLevel36
 
       - name: After build timestamp
