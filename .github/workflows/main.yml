@@ -11,7 +11,6 @@ env:
   DOTNET_CLI_TELEMETRY_OPTOUT: true
   DOTNET_NOLOGO: true
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
-  #FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   TMP_R8_ANALYSIS_PATH: '/tmp/r8analysis'
   GH_WS_R8PATH: '${{ github.workspace }}/r8analysis'
   GRADLE_OPTS: '-Dcom.android.tools.r8.dumpkeepradiushtmltodirectory=${{ github.workspace }}/r8analysis'
@@ -19,6 +18,7 @@ env:
   GRADLE_FOLDER_PATH: '/tmp/gradle'
   GRADLE_BIN_FOLDER_PATH: '/tmp/gradle/bin'
   GRADLE_BIN_PATH: '/tmp/gradle/bin/gradle'
+  GRADLE_BIN_PATH_in_UNITY_EDITOR_FOLDER: '/opt/unity/Editor/Data/PlaybackEngines/AndroidPlayer/Tools/gradle'
   GRADLE_PROJECT: 'Library/Bee/Android/Prj/IL2CPP/Gradle'
   GRADLE_REPORTS_FOLDER: 'Library/Bee/Android/Prj/IL2CPP/Gradle/launcher/build/reports/'
   GRADLE_PROBLEM_REPORT_FOLDER: 'Library/Bee/Android/Prj/IL2CPP/Gradle/build/reports/' # + problems/problems-report.html
@@ -396,6 +396,7 @@ jobs:
           echo "GRADLE_FOLDER_PATH:     $GRADLE_FOLDER_PATH"
           echo "GRADLE_BIN_FOLDER_PATH: $GRADLE_BIN_FOLDER_PATH"
           echo "GRADLE_BIN_PATH:        $GRADLE_BIN_PATH"
+          echo "GRADLE_BIN_PATH_in_UNITY_EDITOR_FOLDER: $GRADLE_BIN_PATH_in_UNITY_EDITOR_FOLDER"
           echo "GRADLE_PROJECT:         $GRADLE_PROJECT"
           echo "GRADLE_REPORTS_FOLDER:  $GRADLE_REPORTS_FOLDER"
           echo "PROJECT_SETTINGS_FILE:  $PROJECT_SETTINGS_FILE"
@@ -457,6 +458,157 @@ jobs:
           androidKeyaliasName: my-key-alias
           androidKeyaliasPass: ${{ secrets.ANDROID_KEYALIAS_PASS }}
           androidTargetSdkVersion: AndroidApiLevel36
+
+      - name: 🔍 Check Gradle & AGP versions
+        if: always() && steps.buildStep.outcome != 'skipped'
+        run: |
+          source .github/scripts/helpers.sh
+          #
+          start_separator
+          echo "=== Gradle version using '$GRADLE_BIN_PATH --version'==="
+          if [ -f "$GRADLE_BIN_PATH" ]; then
+            $GRADLE_BIN_PATH --version
+            # Выведет: Gradle 9.3.1, JVM, OS и т.д.
+          else
+            echo "❌ 🗃️ Файл '$GRADLE_BIN_PATH' НЕ найден - не можем определить версию. Переходим к следующей проверке."
+          fi
+          final_separator
+
+      - name: 🔍 Check Gradle & AGP versions
+        if: always() && steps.buildStep.outcome != 'skipped'
+        run: |
+          source .github/scripts/helpers.sh
+          #
+          start_separator
+          echo "=== Gradle version using '$GRADLE_BIN_PATH_in_UNITY_EDITOR_FOLDER --version'==="
+          if [ -f "$GRADLE_BIN_PATH_in_UNITY_EDITOR_FOLDER" ]; then
+            $GRADLE_BIN_PATH_in_UNITY_EDITOR_FOLDER --version
+            # Выведет: Gradle 9.3.1, JVM, OS и т.д.
+          else
+            echo "❌ 🗃️ Файл '$GRADLE_BIN_PATH_in_UNITY_EDITOR_FOLDER' НЕ найден - не можем определить версию. Переходим к следующей проверке."
+          fi
+          final_separator
+
+      - name: 🔍 Check Gradle & AGP versions
+        if: always() && steps.buildStep.outcome != 'skipped'
+        run: |
+          source .github/scripts/helpers.sh
+          #
+          folder="$GRADLE_PROJECT"
+          if [ ! -d        "$folder" ]; then
+            echo "❌ 📁 No '$folder'. Exit this step."
+            return # exit 1
+          fi
+          #
+          start_separator
+          echo "=== Gradle wrapper version ==="
+          file="$GRADLE_PROJECT/gradle/wrapper/gradle-wrapper.properties"
+          if [ -f "$file" ]; then
+            cat "$file" | grep distributionUrl
+          else
+            echo "❌ 🗃️ Файл '$file' НЕ найден - не можем определить версию. Переходим к следующей проверке."
+          fi
+          final_separator
+          #
+          start_separator
+          echo "=== AGP version (baseProjectTemplate) ==="
+          grep -r "com.android.tools.build:gradle" "$GRADLE_PROJECT" --include="*.gradle" --include="*.kts" || true
+          echo "==="
+          echo "=== AGP version (baseProjectTemplate) ==="
+          grep -r "com.android.tools.build:gradle" "$GRADLE_PROJECT" || true
+          echo "==="
+          echo "=== AGP version (baseProjectTemplate) ==="
+          grep -R "com.android.tools.build:gradle" . || true
+          # примерно так: classpath 'com.android.tools.build:gradle:9.1.1'
+          final_separator
+
+      - name: Inspect Gradle & AGP versions
+        if: always() && steps.buildStep.outcome != 'skipped'
+        run: |
+          source .github/scripts/helpers.sh
+          #
+          list_files() {
+            local folder="$1"
+            local file="$2"
+            local substring="$3"
+            start_separator
+            if [ -d "$folder" ]; then
+              local full_path=$(readlink -f "$folder" 2>/dev/null || echo "$folder")
+              local size=$(du -sh "$folder" 2>/dev/null | cut -f1 || echo "N/A")
+              echo "✅ 📁 '$folder' ($full_path) (Size: $size)."
+              echo "=== List of '$file' files in '$full_path' folder ==="
+              find "$folder" -name "$file" | while read f; do
+                check_file $f
+                if [ -f "$f" ]; then
+                  cat $f | grep "$substring"
+                fi
+              done
+            else
+              echo "❌ 📁 No '$folder'."
+            fi
+            final_separator
+          }
+          #
+          start_separator
+          check_folder Temp/
+          check_folder Temp/StagingArea/
+          check_folder Temp/StagingArea/gradle/
+          check_folder Temp/StagingArea/gradle/wrapper/
+          final_separator
+          #
+          list_files .                                  "gradle-wrapper.properties" "distributionUrl"
+          list_files "$GRADLE_FOLDER_PATH"              "gradle-wrapper.properties" "distributionUrl"
+          list_files "$GRADLE_BIN_FOLDER_PATH"          "gradle-wrapper.properties" "distributionUrl"
+          list_files "$GRADLE_PROJECT"                  "gradle-wrapper.properties" "distributionUrl"
+          list_files "$GRADLE_PROJECT/gradle/wrapper/"  "gradle-wrapper.properties" "distributionUrl"
+          list_files "$GRADLE_REPORTS_FOLDER"           "gradle-wrapper.properties" "distributionUrl"
+          list_files "$GRADLE_PROBLEM_REPORT_FOLDER"    "gradle-wrapper.properties" "distributionUrl"
+          list_files "Temp/StagingArea/gradle/wrapper/" "gradle-wrapper.properties" "distributionUrl"
+          list_files "Temp/StagingArea/"                "build.gradle"              "version"
+
+      - name: Print Android build info
+        if: always() && steps.buildStep.outcome != 'skipped'
+        run: |
+          find . -type f | grep -i "Editor.log" || true
+          # примерно так:
+          #     Gradle version: 9.3.1
+          #     Android Gradle Plugin version: 9.1.1
+
+      - name: Print Gradle version
+        if: always() && steps.buildStep.outcome != 'skipped'
+        run: |
+          find . -name gradle-wrapper.properties -exec cat {} \;
+          # примерно так: distributionUrl=.../gradle-9.3.1...
+
+      - name: Check profile report existence
+        run: |
+          source .github/scripts/helpers.sh
+          #
+          start_separator
+          echo "All '*.htm*' files found in the project folder:"
+          find . -name "*.htm*"
+          final_separator
+          #
+          start_separator
+          echo "All '*.htm*' files found in '$GRADLE_REPORTS_FOLDER' folder:"
+          find "$GRADLE_REPORTS_FOLDER" -name "*.htm*"
+          final_separator
+          #
+          start_separator
+          echo "All '*.htm*' files found in '$GRADLE_PROBLEM_REPORT_FOLDER' folder:"
+          find "$GRADLE_PROBLEM_REPORT_FOLDER" -name "*.htm*"
+          final_separator
+          #
+          check_folder "build/"
+          check_folder "build/reports/"
+          check_folder "build/reports/profile/"
+          check_folder "Temp/"
+          check_folder "Temp/StagingArea/"
+          check_folder "Temp/StagingArea/build/"
+          check_folder "Temp/StagingArea/build/reports/"
+          check_folder "Temp/StagingArea/build/reports/profile/"
+          check_folder "$GRADLE_REPORTS_FOLDER"
+          check_folder "$GRADLE_PROBLEM_REPORT_FOLDER"
 
       - name: After build timestamp
         timeout-minutes: 1
@@ -611,6 +763,34 @@ jobs:
       #    check_folder ./
       #    check_folder "Library/"
       #    check_file   "Library.tar.zst"
+
+      - name: 🗜️ Upload Gradle Report (main build)
+        continue-on-error: true
+        timeout-minutes: 1
+        if: always() && steps.buildStep.outcome != 'skipped'
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-east-1
+          R2_BUCKET: ${{ secrets.R2_BUCKET_NAME }}
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+        run: |
+          REPORTS_DIR="$GRADLE_REPORTS_FOLDER"
+          if [ ! -d "$REPORTS_DIR" ]; then
+            echo "'$REPORTS_DIR' folder not found, skipping uploading it to R2."
+          fi
+          #
+          source .github/scripts/helpers.sh
+          check_folder $REPORTS_DIR
+          #
+          nonZeroFiles=$(find $REPORTS_DIR -type f -size +0 | wc -l)
+          if [ "$nonZeroFiles" -le 0 ]; then
+            echo "'$REPORTS_DIR' folder is empty, skipping uploading it to R2."
+          fi
+          #
+          archive_name="$VERSIONnExt.Gradle_Report_main_stage.7z"
+          compress_7z "$REPORTS_DIR" "$archive_name" 9
+          time aws s3 cp "$archive_name" "s3://$R2_BUCKET/$ANDROID_VERSION_CODE/$archive_name" --endpoint-url $R2_ENDPOINT --quiet
 
       - name: 🗜️ Upload Gradle Problems Report (main build)
         continue-on-error: true
