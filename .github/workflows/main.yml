@@ -455,13 +455,21 @@ jobs:
           androidKeyaliasPass: ${{ secrets.ANDROID_KEYALIAS_PASS }}
           androidTargetSdkVersion: AndroidApiLevel36
 
+      - name: After build timestamp
+        timeout-minutes: 1
+        continue-on-error: true
+        if: always() && steps.buildStep.outcome != 'skipped'
+        run: |
+          echo "---"
+          date -u; echo "---"
+          df -h; echo "---"
+          free -h || true; echo "---"
+
       - name: 🔍 Check Gradle & AGP versions
         if: always() && steps.buildStep.outcome != 'skipped'
         id: check_gradle_1
         continue-on-error: true
         run: |
-          echo "name=🔍 Check Gradle & AGP versions" >> "$GITHUB_OUTPUT"
-          #
           source .github/scripts/helpers.sh
           #
           start_separator
@@ -479,8 +487,6 @@ jobs:
         id: check_gradle_2
         continue-on-error: true
         run: |
-          echo "name=🔍 Check Gradle & AGP versions" >> "$GITHUB_OUTPUT"
-          #
           source .github/scripts/helpers.sh
           #
           start_separator
@@ -498,8 +504,6 @@ jobs:
         id: check_gradle_3
         continue-on-error: true
         run: |
-          echo "name=🔍 Check Gradle & AGP versions" >> "$GITHUB_OUTPUT"
-          #
           source .github/scripts/helpers.sh
           #
           folder="$GRADLE_PROJECT"
@@ -535,8 +539,6 @@ jobs:
         id: check_gradle_4
         continue-on-error: true
         run: |
-          echo "name=Inspect Gradle & AGP versions" >> "$GITHUB_OUTPUT"
-          #
           source .github/scripts/helpers.sh
           #
           list_files() {
@@ -574,8 +576,6 @@ jobs:
         id: check_gradle_5
         continue-on-error: true
         run: |
-          echo "name=Print Android build info" >> "$GITHUB_OUTPUT"
-          #
           find . -type f | grep -i "Editor.log" || true
           # примерно так:
           #     Gradle version: 9.3.1
@@ -586,8 +586,6 @@ jobs:
         id: check_gradle_6
         continue-on-error: true
         run: |
-          echo "name=Print Gradle version" >> "$GITHUB_OUTPUT"
-          #
           find . -name gradle-wrapper.properties -exec cat {} \;
           # примерно так: distributionUrl=.../gradle-9.3.1...
 
@@ -596,8 +594,6 @@ jobs:
         id: check_gradle_7
         continue-on-error: true
         run: |
-          echo "name=Check profile report existence" >> "$GITHUB_OUTPUT"
-          #
           source .github/scripts/helpers.sh
           #
           start_separator
@@ -633,16 +629,6 @@ jobs:
           check_folder "$GRADLE_REPORTS_FOLDER_1"
           check_folder "$GRADLE_REPORTS_FOLDER_2"
 
-      - name: After build timestamp
-        timeout-minutes: 1
-        continue-on-error: true
-        if: always() && steps.buildStep.outcome != 'skipped'
-        run: |
-          echo "---"
-          date -u; echo "---"
-          df -h; echo "---"
-          free -h || true; echo "---"
-
       #- name: Upload Build as GitHub artifact
       #  id: upload_build_as_gitHub_artifact
       #  env:
@@ -669,8 +655,6 @@ jobs:
           R2_BUCKET: ${{ secrets.R2_BUCKET_NAME }}
           R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
         run: |
-          echo "name=🗜️ Upload Build to R2" >> "$GITHUB_OUTPUT"
-          #
           if [ ! -d "build/Android" ]; then
             echo "'build/Android' folder not found, skipping '$EXPORT_MODE' save."
             exit 1
@@ -702,8 +686,6 @@ jobs:
           SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
           SENTRY_LOG_LEVEL_ARG: ${{ inputs.sentry_debug == true && '--log-level debug' || '' }}
         run: |
-          echo "name=📈 Create Sentry release" >> "$GITHUB_OUTPUT"
-          #
           AAB_FILE=$(find build -name "*.aab" | head -n 1)
           if [ -n "$AAB_FILE" ]; then
             echo "All '*.aab' files found:"
@@ -736,8 +718,6 @@ jobs:
           SENTRY_LOG_LEVEL_ARG: ${{ inputs.sentry_debug == true && '--log-level debug' || '' }}
           SHA: ${{ github.sha }}
         run: |
-          echo "name=📈 Upload AAB to Sentry for Size Tracking" >> "$GITHUB_OUTPUT"
-          #
           AAB_FILE=$(find build -name "*.aab" | head -n 1)
           if [ -n "$AAB_FILE" ]; then
             echo "All '*.aab' files found:"
@@ -773,8 +753,6 @@ jobs:
       #    R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
       #    CACHE_KEY: Library-Android-${{ hashFiles('Packages/manifest.json', 'Packages/packages-lock.json', 'ProjectSettings/ProjectSettings.asset', 'ProjectSettings/ProjectVersion.txt', 'Assets/Settings/Build Profiles/Android_Release_APK.asset', 'Assets/Settings/Build Profiles/Android_Release_AAB.asset') }}
       #  run: |
-      #    echo "name=Save Library cache to R2" >> "$GITHUB_OUTPUT"
-      #    #
       #    if [ ! -d "Library" ]; then
       #      echo "Library folder not found, skipping cache save."
       #      exit 1
@@ -800,8 +778,6 @@ jobs:
           R2_BUCKET: ${{ secrets.R2_BUCKET_NAME }}
           R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
         run: |
-          echo "name=🗜️ Upload Gradle Report (main stage)" >> "$GITHUB_OUTPUT"
-          #
           REPORTS_DIR="$GRADLE_REPORTS_FOLDER_1"
           if [ ! -d "$REPORTS_DIR" ]; then
             echo "'$REPORTS_DIR' folder not found, skipping uploading it to R2."
@@ -831,8 +807,6 @@ jobs:
           R2_BUCKET: ${{ secrets.R2_BUCKET_NAME }}
           R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
         run: |
-          echo "name=🗜️ Upload Gradle Problems Report (main stage)" >> "$GITHUB_OUTPUT"
-          #
           REPORTS_DIR="$GRADLE_REPORTS_FOLDER_2"
           if [ ! -d "$REPORTS_DIR" ]; then
             echo "'$REPORTS_DIR' folder not found, skipping uploading it to R2."
@@ -862,8 +836,6 @@ jobs:
           R2_BUCKET: ${{ secrets.R2_BUCKET_NAME }}
           R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
         run: |
-          echo "name=🗜️ Upload R8 Configuration Analyzer Report (tmp_r8_main_stage)" >> "$GITHUB_OUTPUT"
-          #
           REPORTS_DIR="$TMP_R8_ANALYSIS_PATH"
           if [ ! -d "$REPORTS_DIR" ]; then
             echo "'$REPORTS_DIR' folder not found, skipping uploading it to R2."
@@ -895,8 +867,6 @@ jobs:
           R2_BUCKET: ${{ secrets.R2_BUCKET_NAME }}
           R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
         run: |
-          echo "name=🗜️ Upload R8 Configuration Analysis (main stage)" >> "$GITHUB_OUTPUT"
-          #
           REPORTS_DIR="$GH_WS_R8PATH/"
           if [ ! -d "$REPORTS_DIR" ]; then
             echo "'$REPORTS_DIR' folder not found, skipping uploading it to R2."
@@ -923,8 +893,6 @@ jobs:
         id: revert_PROJECT_SETTINGS_FILE
         if: steps.buildStep.outcome == 'success'
         run: |
-          echo "name=Revert PROJECT_SETTINGS_FILE" >> "$GITHUB_OUTPUT"
-          #
           DEST="$PROJECT_SETTINGS_FILE"
           rm "$DEST"
           mv "$DEST.bak" "$DEST"
@@ -936,38 +904,31 @@ jobs:
         run: |
           source .github/scripts/helpers.sh
           #
-          table_title "Build Step Info"
-          echo "##### 👀 Build Step Info"                                        >> $GITHUB_STEP_SUMMARY
-          echo                                                                   >> $GITHUB_STEP_SUMMARY
+          echo "##### 👀 Build Step Info"                                         >> $GITHUB_STEP_SUMMARY
+          echo                                                                    >> $GITHUB_STEP_SUMMARY
           echo "| 🏷️ Project Version (buildVersion) | 🤖 Android Version Code |" >> $GITHUB_STEP_SUMMARY
           echo "| :--- | :--- |"                                                  >> $GITHUB_STEP_SUMMARY
           echo "| \`${{ steps.buildStep.outputs.buildVersion }}\` | \`${{ steps.buildStep.outputs.androidVersionCode }}\` |" >> $GITHUB_STEP_SUMMARY
           #
           table_title "Post Android Build Summary"
-          get_step_summary '${{ toJson(steps.buildStep) }}'                      "🦺 Build Android ${{ matrix.exportMode }}" "${{ steps.buildStep.outputs.engineExitCode }}"
-          get_step_summary '${{ toJson(steps.check_gradle_1) }}'                         '${{ toJson(steps.check_gradle_1.outputs) }}'
-          get_step_summary '${{ toJson(steps.check_gradle_2) }}'                         '${{ toJson(steps.check_gradle_2.outputs) }}'
-          get_step_summary '${{ toJson(steps.check_gradle_3) }}'                         '${{ toJson(steps.check_gradle_3.outputs) }}'
-          get_step_summary '${{ toJson(steps.check_gradle_4) }}'                         '${{ toJson(steps.check_gradle_4.outputs) }}'
-          get_step_summary '${{ toJson(steps.check_gradle_5) }}'                         '${{ toJson(steps.check_gradle_5.outputs) }}'
-          get_step_summary '${{ toJson(steps.check_gradle_6) }}'                         '${{ toJson(steps.check_gradle_6.outputs) }}'
-          get_step_summary '${{ toJson(steps.check_gradle_7) }}'                         '${{ toJson(steps.check_gradle_7.outputs) }}'
-          get_step_summary '${{ toJson(steps.upload_build_to_r2) }}'                     '${{ toJson(steps.upload_build_to_r2.outputs) }}'
-          get_step_summary '${{ toJson(steps.create_sentry_release) }}'                  '${{ toJson(steps.create_sentry_release.outputs) }}'
-          get_step_summary '${{ toJson(steps.upload_aab_to_sentry_for_size_tracking) }}' '${{ toJson(steps.upload_aab_to_sentry_for_size_tracking.outputs) }}'
-          echo >> $GITHUB_STEP_SUMMARY
-
-      - name: 👀 Test Post Android Build Summary
-        timeout-minutes: 1
-        continue-on-error: true
-        if: always()
-        run: |
-          source .github/scripts/helpers.sh
-          #
-          table_title "Test table"
-          get_step_summary '${{ toJson(steps.buildStep) }}'                              "🦺 Build Android ${{ matrix.exportMode }}"                           "${{ steps.buildStep.outputs.engineExitCode }}"
-          get_step_summary '${{ toJson(steps.upload_build_as_gitHub_artifact) }}'                         '${{ toJson(steps.upload_build_as_gitHub_artifact.outputs) }}'                         
-          get_step_summary '${{ toJson(steps.check_gradle_1) }}'                         '${{ toJson(steps.check_gradle_1.outputs) }}'                         
+          get_step_summary '${{ toJson(steps.buildStep) }}'                      "🦺 Build Android ${{ matrix.exportMode }} (${{ steps.buildStep.outputs.engineExitCode }})"
+          get_step_summary '${{ toJson(steps.check_gradle_1) }}'                                            "🔍 Check Gradle & AGP versions"
+          get_step_summary '${{ toJson(steps.check_gradle_2) }}'                                            "🔍 Check Gradle & AGP versions"
+          get_step_summary '${{ toJson(steps.check_gradle_3) }}'                                            "🔍 Check Gradle & AGP versions"
+          get_step_summary '${{ toJson(steps.check_gradle_4) }}'                                            "Inspect Gradle & AGP versions"
+          get_step_summary '${{ toJson(steps.check_gradle_5) }}'                                            "Print Android build info"
+          get_step_summary '${{ toJson(steps.check_gradle_6) }}'                                            "Print Gradle version"
+          get_step_summary '${{ toJson(steps.check_gradle_7) }}'                                            "Check profile report existence"
+          get_step_summary '${{ toJson(steps.upload_build_as_gitHub_artifact) }}'                           "Upload Build as GitHub artifact"
+          get_step_summary '${{ toJson(steps.upload_build_to_r2) }}'                                        "🗜️ Upload Build to R2"
+          get_step_summary '${{ toJson(steps.create_sentry_release) }}'                                     "📈 Create Sentry release"
+          get_step_summary '${{ toJson(steps.upload_aab_to_sentry_for_size_tracking) }}'                    "📈 Upload AAB to Sentry for Size Tracking"
+          get_step_summary '${{ toJson(steps.save_library_cache) }}'                                        "Save Library cache to R2"
+          get_step_summary '${{ toJson(steps.upload_gradle_report_main_stage) }}'                           "🗜️ Upload Gradle Report (main stage)"
+          get_step_summary '${{ toJson(steps.upload_gradle_problems_report_main_stage) }}'                  "🗜️ Upload Gradle Problems Report (main stage)"
+          get_step_summary '${{ toJson(steps.upload_r8_configuration_analyzer_report_tmp_r8_main_stage) }}' "🗜️ Upload R8 Configuration Analyzer Report (tmp_r8_main_stage)"
+          get_step_summary '${{ toJson(steps.upload_r8_configuration_analysis_main_stage) }}'               "🗜️ Upload R8 Configuration Analysis (main stage)"
+          get_step_summary '${{ toJson(steps.revert_PROJECT_SETTINGS_FILE) }}'                              "Revert PROJECT_SETTINGS_FILE"
           echo >> $GITHUB_STEP_SUMMARY
 
       - name: Setup latest Gradle
@@ -978,8 +939,6 @@ jobs:
           LATEST_GRADLE_URL: 'https://services.gradle.org/distributions/gradle-$LATEST_GRADLE-bin.zip'
           PATH_TO_SAVE_ZIP: '$GRADLE_FOLDER_PATH.zip'
         run: |
-          echo "name=Setup latest Gradle" >> "$GITHUB_OUTPUT"
-          #
           source .github/scripts/helpers.sh
           #
           echo "Downloading '$LATEST_GRADLE_URL' to '$PATH_TO_SAVE_ZIP'..."
@@ -1018,8 +977,6 @@ jobs:
         id: patch_gradle_project_for_R8
         if: always() && steps.setup_latest_Gradle.outcome == 'success'
         run: |
-          echo "name=Patch Gradle project for R8 Configuration Analyzer" >> "$GITHUB_OUTPUT"
-          #
           # Меняем владельца на runner
           sudo chown -R runner:runner "$GRADLE_PROJECT"
           #
@@ -1067,8 +1024,6 @@ jobs:
         id: fix_sdk_ndk_paths_for_R8
         if: always() && steps.patch_gradle_project_for_R8.outcome == 'success'
         run: |
-          echo "name=Fix SDK/NDK paths for R8 analyzer" >> "$GITHUB_OUTPUT"
-          #
           source .github/scripts/helpers.sh
           #
           check_folder "$GRADLE_PROJECT/"
@@ -1144,8 +1099,6 @@ jobs:
         id: run_R8_configuration_analyzer
         if: always() && steps.fix_sdk_ndk_paths_for_R8.outcome == 'success'
         run: |
-          echo "name=Run R8 Configuration Analyzer" >> "$GITHUB_OUTPUT"
-          #
           echo "=== GRADLE_OPTS ==="
           echo "$GRADLE_OPTS"
           echo "====================================================="
@@ -1165,8 +1118,6 @@ jobs:
           R2_BUCKET: ${{ secrets.R2_BUCKET_NAME }}
           R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
         run: |
-          echo "name=🗜️ Upload Gradle Problems Report (R8 stage)" >> "$GITHUB_OUTPUT"
-          #
           REPORTS_DIR="$GRADLE_REPORTS_FOLDER_2"
           if [ ! -d "$REPORTS_DIR" ]; then
             echo "'$REPORTS_DIR' folder not found, skipping uploading it to R2."
@@ -1196,8 +1147,6 @@ jobs:
           R2_BUCKET: ${{ secrets.R2_BUCKET_NAME }}
           R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
         run: |
-          echo "name=🗜️ Upload R8 Configuration Analyzer Report" >> "$GITHUB_OUTPUT"
-          #
           REPORTS_DIR="$GRADLE_REPORTS_FOLDER_1"
           if [ ! -d "$REPORTS_DIR" ]; then
             echo "'$REPORTS_DIR' folder not found, skipping uploading it to R2."
@@ -1229,8 +1178,6 @@ jobs:
           R2_BUCKET: ${{ secrets.R2_BUCKET_NAME }}
           R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
         run: |
-          echo "name=🗜️ Upload R8 Configuration Analysis (R8 stage)" >> "$GITHUB_OUTPUT"
-          #
           REPORTS_DIR="$GH_WS_R8PATH/"
           if [ ! -d "$REPORTS_DIR" ]; then
             echo "'$REPORTS_DIR' folder not found, skipping uploading it to R2."
@@ -1256,8 +1203,6 @@ jobs:
         id: check_GH_WS_R8PATH
         if: always() && steps.run_R8_configuration_analyzer.outcome != 'skipped'
         run: |
-          echo "name=Check '$GH_WS_R8PATH'" >> "$GITHUB_OUTPUT"
-          #
           source .github/scripts/helpers.sh
           check_folder "$GH_WS_R8PATH"
 
@@ -1273,8 +1218,6 @@ jobs:
           R2_BUCKET: ${{ secrets.R2_BUCKET_NAME }}
           R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
         run: |
-          echo "name=🗜️ Upload R8 Configuration Analyzer Report (R8 stage)" >> "$GITHUB_OUTPUT"
-          #
           REPORTS_DIR="$TMP_R8_ANALYSIS_PATH"
           if [ ! -d "$REPORTS_DIR" ]; then
             echo "'$REPORTS_DIR' folder not found, skipping uploading it to R2."
@@ -1307,8 +1250,6 @@ jobs:
           R2_BUCKET: ${{ secrets.R2_BUCKET_NAME }}
           R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
         run: |
-          echo "name=🗜️ Find and upload r8.json" >> "$GITHUB_OUTPUT"
-          #
           DIR="$GH_WORKSPACE"
           #
           if [ ! -d "$DIR" ]; then
@@ -1340,8 +1281,6 @@ jobs:
           R2_BUCKET: ${{ secrets.R2_BUCKET_NAME }}
           R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
         run: |
-          echo "name=🗜️ Find and upload proguard.txt for ads-mobile-sdk" >> "$GITHUB_OUTPUT"
-          #
           DIR="$GH_WORKSPACE"
           #
           if [ ! -d "$DIR" ]; then
@@ -1379,15 +1318,15 @@ jobs:
           source .github/scripts/helpers.sh
           #
           table_title "Post R8 Summary"
-          get_step_summary '${{ toJson(steps.setup_latest_Gradle) }}'                              '${{ toJson(steps.setup_latest_Gradle.outputs) }}'
-          get_step_summary '${{ toJson(steps.patch_gradle_project_for_R8) }}'                      '${{ toJson(steps.patch_gradle_project_for_R8.outputs) }}'
-          get_step_summary '${{ toJson(steps.fix_sdk_ndk_paths_for_R8) }}'                         '${{ toJson(steps.fix_sdk_ndk_paths_for_R8.outputs) }}'
-          get_step_summary '${{ toJson(steps.run_R8_configuration_analyzer) }}'                    '${{ toJson(steps.run_R8_configuration_analyzer.outputs) }}'
-          get_step_summary '${{ toJson(steps.upload_gradle_problems_report_r8_stage) }}'           '${{ toJson(steps.upload_gradle_problems_report_r8_stage.outputs) }}'
-          get_step_summary '${{ toJson(steps.upload_r8_configuration_analyzer_report) }}'          '${{ toJson(steps.upload_r8_configuration_analyzer_report.outputs) }}'
-          get_step_summary '${{ toJson(steps.upload_r8_configuration_analysis_r8_stage) }}'        '${{ toJson(steps.upload_r8_configuration_analysis_r8_stage.outputs) }}'
-          get_step_summary '${{ toJson(steps.check_GH_WS_R8PATH) }}'                               '${{ toJson(steps.check_GH_WS_R8PATH.outputs) }}'
-          get_step_summary '${{ toJson(steps.upload_r8_configuration_analyzer_report_r8_stage) }}' '${{ toJson(steps.upload_r8_configuration_analyzer_report_r8_stage.outputs) }}'
-          get_step_summary '${{ toJson(steps.find_and_upload_r8_json) }}'                          '${{ toJson(steps.find_and_upload_r8_json.outputs) }}'
-          get_step_summary '${{ toJson(steps.find_and_upload_proguard_txt_for_ads_mobile_sdk) }}'  '${{ toJson(steps.find_and_upload_proguard_txt_for_ads_mobile_sdk.outputs) }}'
+          get_step_summary '${{ toJson(steps.setup_latest_Gradle) }}'                              "Setup latest Gradle"
+          get_step_summary '${{ toJson(steps.patch_gradle_project_for_R8) }}'                      "Patch Gradle project for R8 Configuration Analyzer"
+          get_step_summary '${{ toJson(steps.fix_sdk_ndk_paths_for_R8) }}'                         "Fix SDK/NDK paths for R8 analyzer"
+          get_step_summary '${{ toJson(steps.run_R8_configuration_analyzer) }}'                    "Run R8 Configuration Analyzer"
+          get_step_summary '${{ toJson(steps.upload_gradle_problems_report_r8_stage) }}'           "🗜️ Upload Gradle Problems Report (R8 stage)"
+          get_step_summary '${{ toJson(steps.upload_r8_configuration_analyzer_report) }}'          "🗜️ Upload R8 Configuration Analyzer Report"
+          get_step_summary '${{ toJson(steps.upload_r8_configuration_analysis_r8_stage) }}'        "🗜️ Upload R8 Configuration Analysis (R8 stage)"
+          get_step_summary '${{ toJson(steps.check_GH_WS_R8PATH) }}'                               "Check '$GH_WS_R8PATH'"
+          get_step_summary '${{ toJson(steps.upload_r8_configuration_analyzer_report_r8_stage) }}' "🗜️ Upload R8 Configuration Analyzer Report (R8 stage)"
+          get_step_summary '${{ toJson(steps.find_and_upload_r8_json) }}'                          "🗜️ Find and upload r8.json"
+          get_step_summary '${{ toJson(steps.find_and_upload_proguard_txt_for_ads_mobile_sdk) }}'  "🗜️ Find and upload proguard.txt for ads-mobile-sdk"
           echo >> $GITHUB_STEP_SUMMARY
