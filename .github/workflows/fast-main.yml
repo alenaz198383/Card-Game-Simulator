@@ -33,7 +33,7 @@ on:
           - both
           - apk
           - aab
-        default: apk
+        default: aab
       custom_build_version:
         description: 'Версия сборки (формат 1.2.3)'
         required: false
