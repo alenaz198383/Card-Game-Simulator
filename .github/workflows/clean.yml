@@ -59,44 +59,44 @@ jobs:
             echo "##### No artifacts older than 2 days found." >> $GITHUB_STEP_SUMMARY
           fi
 
-      - name: Process caches
-        run: |
-          # Get a list of caches older than 2 days
-          gh api repos/${{ github.repository }}/actions/caches --paginate --jq \
-            ".actions_caches[] | select(.last_accessed_at < \"$THRESHOLD_2days_LIST\") | {
-              id: .id,
-              key: .key,
-              ref: .ref,
-              created_at: .created_at,
-              last_accessed_at: .last_accessed_at,
-              size_kb: (.size_in_bytes / 1024 | floor)
-            }" > caches.json
-          #
-          if [ -s caches.json ]; then
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "##### Caches 'last_accessed_at' older than 2 days ('last_accessed_at' before $THRESHOLD_2days_LIST):" >> $GITHUB_STEP_SUMMARY
-            echo '```json' >> $GITHUB_STEP_SUMMARY
-            jq -s '.' caches.json >> $GITHUB_STEP_SUMMARY
-            echo '```' >> $GITHUB_STEP_SUMMARY
-            #
-            # Delete those that are older than 2 days
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "##### Deleting caches 'last_accessed_at' older than 2 days ('last_accessed_at' before $THRESHOLD_2days_DELETE):" >> $GITHUB_STEP_SUMMARY
-            jq -c "select(.last_accessed_at < \"$THRESHOLD_2days_DELETE\")" caches.json | while read -r item; do
-              id=$(echo "$item" | jq -r '.id')
-              echo "Deleting cache ID: $id" >> $GITHUB_STEP_SUMMARY
-              gh api -X DELETE repos/${{ github.repository }}/actions/caches/$id
-            done
-          else
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "##### No caches older than 2 days found." >> $GITHUB_STEP_SUMMARY
-          fi
+      #- name: Process caches
+      #  run: |
+      #    # Get a list of caches older than 2 days
+      #    gh api repos/${{ github.repository }}/actions/caches --paginate --jq \
+      #      ".actions_caches[] | select(.last_accessed_at < \"$THRESHOLD_2days_LIST\") | {
+      #        id: .id,
+      #        key: .key,
+      #        ref: .ref,
+      #        created_at: .created_at,
+      #        last_accessed_at: .last_accessed_at,
+      #        size_kb: (.size_in_bytes / 1024 | floor)
+      #      }" > caches.json
+      #    #
+      #    if [ -s caches.json ]; then
+      #      echo "" >> $GITHUB_STEP_SUMMARY
+      #      echo "##### Caches 'last_accessed_at' older than 2 days ('last_accessed_at' before $THRESHOLD_2days_LIST):" >> $GITHUB_STEP_SUMMARY
+      #      echo '```json' >> $GITHUB_STEP_SUMMARY
+      #      jq -s '.' caches.json >> $GITHUB_STEP_SUMMARY
+      #      echo '```' >> $GITHUB_STEP_SUMMARY
+      #      #
+      #      # Delete those that are older than 2 days
+      #      echo "" >> $GITHUB_STEP_SUMMARY
+      #      echo "##### Deleting caches 'last_accessed_at' older than 2 days ('last_accessed_at' before $THRESHOLD_2days_DELETE):" >> $GITHUB_STEP_SUMMARY
+      #      jq -c "select(.last_accessed_at < \"$THRESHOLD_2days_DELETE\")" caches.json | while read -r item; do
+      #        id=$(echo "$item" | jq -r '.id')
+      #        echo "Deleting cache ID: $id" >> $GITHUB_STEP_SUMMARY
+      #        gh api -X DELETE repos/${{ github.repository }}/actions/caches/$id
+      #      done
+      #    else
+      #      echo "" >> $GITHUB_STEP_SUMMARY
+      #      echo "##### No caches older than 2 days found." >> $GITHUB_STEP_SUMMARY
+      #    fi
 
       - name: Process workflow runs
         run: |
           # Получение запусков старше 3 дней
           gh api repos/${{ github.repository }}/actions/runs --paginate --jq \
-            ".workflow_runs[] | select(.created_at > \"$THRESHOLD_3days_LIST\") | {
+            ".workflow_runs[] | select(.created_at < \"$THRESHOLD_3days_LIST\") | {
               conclusion: .conclusion,
               created_at: .created_at,
               display_title: .display_title,
