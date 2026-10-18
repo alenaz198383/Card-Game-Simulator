@@ -128,7 +128,7 @@ jobs:
               #
               echo "Deleting workflow run ID: $id" >> $GITHUB_STEP_SUMMARY
               #
-              #gh api -X DELETE repos/${{ github.repository }}/actions/runs/$id
+              gh api -X DELETE repos/${{ github.repository }}/actions/runs/$id
             done
           else
             echo "" >> $GITHUB_STEP_SUMMARY
