@@ -21,6 +21,8 @@ jobs:
     steps:
       - name: Set thresholds
         run: |
+          echo "THRESHOLD_1day_LIST=$(date -d '1 day ago' +%Y-%m-%dT%H:%M:%S%:z)" >> $GITHUB_ENV
+          echo "THRESHOLD_1day_DELETE=$(date -d '1 day ago' +%Y-%m-%dT%H:%M:%S%:z)" >> $GITHUB_ENV
           echo "THRESHOLD_2days_LIST=$(date -d '2 days ago' +%Y-%m-%dT%H:%M:%S%:z)" >> $GITHUB_ENV
           echo "THRESHOLD_2days_DELETE=$(date -d '2 days ago' +%Y-%m-%dT%H:%M:%S%:z)" >> $GITHUB_ENV
           echo "THRESHOLD_3days_LIST=$(date -d '3 days ago' +%Y-%m-%dT%H:%M:%S%:z)" >> $GITHUB_ENV
@@ -28,9 +30,9 @@ jobs:
 
       - name: Process artifacts
         run: |
-          # Get a list of artifacts older than 2 days
+          # Get a list of artifacts older than 1 day
           gh api repos/${{ github.repository }}/actions/artifacts --paginate --jq \
-            ".artifacts[] | select(.created_at < \"$THRESHOLD_2days_LIST\") | {
+            ".artifacts[] | select(.created_at < \"$THRESHOLD_1day_LIST\") | {
               branch: .workflow_run.head_branch,
               created_at: .created_at,
               expired: .expired,
@@ -42,21 +44,21 @@ jobs:
             }" > artifacts.json
           #
           if [ -s artifacts.json ]; then
-            echo "##### Artifacts older than 2 days (created before $THRESHOLD_2days_LIST):" >> $GITHUB_STEP_SUMMARY
+            echo "##### Artifacts older than 1 day (created before $THRESHOLD_1day_LIST):" >> $GITHUB_STEP_SUMMARY
             echo '```json' >> $GITHUB_STEP_SUMMARY
             jq -s '.' artifacts.json >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
             #
-            # We delete those that are older than 2 days
+            # Delete those that are older than 1 day
             echo "" >> $GITHUB_STEP_SUMMARY
-            echo "##### Deleting artifacts older than 2 days (created before $THRESHOLD_2days_DELETE):" >> $GITHUB_STEP_SUMMARY
-            jq -c "select(.created_at < \"$THRESHOLD_2days_DELETE\")" artifacts.json | while read -r item; do
+            echo "##### Deleting artifacts older than 1 day (created before $THRESHOLD_1day_DELETE):" >> $GITHUB_STEP_SUMMARY
+            jq -c "select(.created_at < \"$THRESHOLD_1day_DELETE\")" artifacts.json | while read -r item; do
               id=$(echo "$item" | jq -r '.id')
               echo "Deleting artifact ID: $id" >> $GITHUB_STEP_SUMMARY
               gh api -X DELETE repos/${{ github.repository }}/actions/artifacts/$id
             done
           else
-            echo "##### No artifacts older than 2 days found." >> $GITHUB_STEP_SUMMARY
+            echo "##### No artifacts older than 1 day found." >> $GITHUB_STEP_SUMMARY
           fi
 
       #- name: Process caches
