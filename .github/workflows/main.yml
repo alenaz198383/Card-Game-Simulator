@@ -911,7 +911,7 @@ jobs:
           echo "| \`${{ steps.buildStep.outputs.buildVersion }}\` | \`${{ steps.buildStep.outputs.androidVersionCode }}\` |" >> $GITHUB_STEP_SUMMARY
           #
           table_title "Post Android Build Summary"
-          get_step_summary '${{ toJson(steps.buildStep) }}'                      "🦺 Build Android ${{ matrix.exportMode }} (${{ steps.buildStep.outputs.engineExitCode }})"
+          get_step_summary '${{ toJson(steps.buildStep) }}'            "🦺 Build Android ${{ matrix.exportMode }} (exitCode: ${{ steps.buildStep.outputs.engineExitCode }})"
           get_step_summary '${{ toJson(steps.check_gradle_1) }}'                                            "🔍 Check Gradle & AGP versions"
           get_step_summary '${{ toJson(steps.check_gradle_2) }}'                                            "🔍 Check Gradle & AGP versions"
           get_step_summary '${{ toJson(steps.check_gradle_3) }}'                                            "🔍 Check Gradle & AGP versions"
