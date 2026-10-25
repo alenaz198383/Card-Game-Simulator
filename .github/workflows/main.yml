@@ -246,54 +246,6 @@ jobs:
           mv Card-Game-Simulator_new/ Card-Game-Simulator/
           cd ./Card-Game-Simulator/
 
-      #- name: Restore Library cache from R2
-      # timeout-minutes: 1
-      #  env:
-      #    AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-      #    AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-      #    AWS_DEFAULT_REGION: us-east-1
-      #    R2_BUCKET: ${{ secrets.R2_BUCKET_NAME }}
-      #    R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
-      #    CACHE_KEY: Library-Android-${{ hashFiles('Packages/manifest.json', 'Packages/packages-lock.json', 'ProjectSettings/ProjectSettings.asset', 'ProjectSettings/ProjectVersion.txt', 'Assets/Settings/Build Profiles/Android_Release_APK.asset', 'Assets/Settings/Build Profiles/Android_Release_AAB.asset') }}
-      #  run: |
-      #    echo "Looking for cache: $CACHE_KEY"
-      #    if aws s3 cp "s3://$R2_BUCKET/$CACHE_KEY" Library.tar.zst --endpoint-url $R2_ENDPOINT --quiet; then
-      #      echo "Cache found, extracting..."
-      #      tar -I zstd -xf Library.tar.zst
-      #      rm Library.tar.zst
-      #      source .github/scripts/helpers.sh
-      #      check_folder ./
-      #      check_folder "Library/"
-      #      rm -rf Library/
-      #    else
-      #      echo "Cache not found. Nothing to download."
-      #    fi
-
-      - name: Cache Library
-        timeout-minutes: 3
-        #v6.1.0 - https://github.com/actions/cache/releases
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
-        with:
-          path: Library
-          key: Library-Android-${{ hashFiles('Packages/manifest.json', 'Packages/packages-lock.json', 'ProjectSettings/ProjectSettings.asset', 'ProjectSettings/ProjectVersion.txt', 'Assets/Settings/Build Profiles/Android_Release_APK.asset', 'Assets/Settings/Build Profiles/Android_Release_AAB.asset') }}-${{ matrix.exportMode == 'apk' && 'apk' || 'aab' }}-${{ inputs.use_cached_library == true && '' || 'new' }}-main
-          restore-keys: |
-            Library-Android-${{ hashFiles('Packages/manifest.json', 'Packages/packages-lock.json', 'ProjectSettings/ProjectSettings.asset', 'ProjectSettings/ProjectVersion.txt', 'Assets/Settings/Build Profiles/Android_Release_APK.asset', 'Assets/Settings/Build Profiles/Android_Release_AAB.asset') }}-${{ inputs.use_cached_library == true && '' || 'dontusecache' }}
-
-      - name: Check hash codes
-        timeout-minutes: 1
-        run: |
-          echo "=== Cache-key: ==="
-          echo "Full cache-key:                   ${{ hashFiles('Packages/manifest.json', 'Packages/packages-lock.json', 'ProjectSettings/ProjectSettings.asset', 'ProjectSettings/ProjectVersion.txt', 'Assets/Settings/Build Profiles/Android_Release_APK.asset', 'Assets/Settings/Build Profiles/Android_Release_AAB.asset') }}"
-          echo "Packages/:"
-          echo "    /manifest.json:               ${{ hashFiles('Packages/manifest.json') }}"
-          echo "    /packages-lock.json:          ${{ hashFiles('Packages/packages-lock.json') }}"
-          echo "ProjectSettings/:"
-          echo "    /ProjectSettings.asset:       ${{ hashFiles('ProjectSettings/ProjectSettings.asset') }}"
-          echo "    /ProjectVersion.txt:          ${{ hashFiles('ProjectSettings/ProjectVersion.txt') }}"
-          echo "Assets/Settings/Build Profiles/:"
-          echo "    /Android_Release_AAB.asset:   ${{ hashFiles('Assets/Settings/Build Profiles/Android_Release_AAB.asset') }}"
-          echo "    /Android_Release_APK.asset:   ${{ hashFiles('Assets/Settings/Build Profiles/Android_Release_APK.asset') }}"
-
       - name: Extract Build Versions (File or Input)
         timeout-minutes: 1
         env:
@@ -406,6 +358,54 @@ jobs:
           echo "store_export_type:            $STORE_EXPORT_TYPE"
           echo "isProduction:                 $IS_PRODUCTION"
           echo "sentry_size_analysis_enabled: $SENTRY_SIZE_ANALYSIS_INPUT"
+
+      #- name: Restore Library cache from R2
+      # timeout-minutes: 1
+      #  env:
+      #    AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      #    AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      #    AWS_DEFAULT_REGION: us-east-1
+      #    R2_BUCKET: ${{ secrets.R2_BUCKET_NAME }}
+      #    R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+      #    CACHE_KEY: Library-Android-${{ hashFiles('Packages/manifest.json', 'Packages/packages-lock.json', 'ProjectSettings/ProjectSettings.asset', 'ProjectSettings/ProjectVersion.txt', 'Assets/Settings/Build Profiles/Android_Release_APK.asset', 'Assets/Settings/Build Profiles/Android_Release_AAB.asset') }}
+      #  run: |
+      #    echo "Looking for cache: $CACHE_KEY"
+      #    if aws s3 cp "s3://$R2_BUCKET/$CACHE_KEY" Library.tar.zst --endpoint-url $R2_ENDPOINT --quiet; then
+      #      echo "Cache found, extracting..."
+      #      tar -I zstd -xf Library.tar.zst
+      #      rm Library.tar.zst
+      #      source .github/scripts/helpers.sh
+      #      check_folder ./
+      #      check_folder "Library/"
+      #      rm -rf Library/
+      #    else
+      #      echo "Cache not found. Nothing to download."
+      #    fi
+
+      - name: Cache Library
+        timeout-minutes: 3
+        #v6.1.0 - https://github.com/actions/cache/releases
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+        with:
+          path: Library
+          key: Library-Android-${{ hashFiles('Packages/manifest.json', 'Packages/packages-lock.json', 'ProjectSettings/ProjectSettings.asset', 'ProjectSettings/ProjectVersion.txt', 'Assets/Settings/Build Profiles/Android_Release_APK.asset', 'Assets/Settings/Build Profiles/Android_Release_AAB.asset') }}-$ANDROID_VERSION_CODE-${{ matrix.exportMode == 'apk' && 'apk' || 'aab' }}-${{ inputs.use_cached_library == true && '' || 'new' }}-main
+          restore-keys: |
+            Library-Android-${{ hashFiles('Packages/manifest.json', 'Packages/packages-lock.json', 'ProjectSettings/ProjectSettings.asset', 'ProjectSettings/ProjectVersion.txt', 'Assets/Settings/Build Profiles/Android_Release_APK.asset', 'Assets/Settings/Build Profiles/Android_Release_AAB.asset') }}-$ANDROID_VERSION_CODE-${{ inputs.use_cached_library == true && '' || 'dontusecache' }}
+
+      - name: Check hash codes
+        timeout-minutes: 1
+        run: |
+          echo "=== Cache-key: ==="
+          echo "Full cache-key:                   ${{ hashFiles('Packages/manifest.json', 'Packages/packages-lock.json', 'ProjectSettings/ProjectSettings.asset', 'ProjectSettings/ProjectVersion.txt', 'Assets/Settings/Build Profiles/Android_Release_APK.asset', 'Assets/Settings/Build Profiles/Android_Release_AAB.asset') }}"
+          echo "Packages/:"
+          echo "    /manifest.json:               ${{ hashFiles('Packages/manifest.json') }}"
+          echo "    /packages-lock.json:          ${{ hashFiles('Packages/packages-lock.json') }}"
+          echo "ProjectSettings/:"
+          echo "    /ProjectSettings.asset:       ${{ hashFiles('ProjectSettings/ProjectSettings.asset') }}"
+          echo "    /ProjectVersion.txt:          ${{ hashFiles('ProjectSettings/ProjectVersion.txt') }}"
+          echo "Assets/Settings/Build Profiles/:"
+          echo "    /Android_Release_AAB.asset:   ${{ hashFiles('Assets/Settings/Build Profiles/Android_Release_AAB.asset') }}"
+          echo "    /Android_Release_APK.asset:   ${{ hashFiles('Assets/Settings/Build Profiles/Android_Release_APK.asset') }}"
 
       - name: 📈 Install sentry-cli
         timeout-minutes: 1
