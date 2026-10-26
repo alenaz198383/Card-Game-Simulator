@@ -367,7 +367,14 @@ jobs:
       #    AWS_DEFAULT_REGION: us-east-1
       #    R2_BUCKET: ${{ secrets.R2_BUCKET_NAME }}
       #    R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
-      #    CACHE_KEY: Library-Android-${{ hashFiles('Packages/manifest.json', 'Packages/packages-lock.json', 'ProjectSettings/ProjectSettings.asset', 'ProjectSettings/ProjectVersion.txt', 'Assets/Settings/Build Profiles/Android_Release_APK.asset', 'Assets/Settings/Build Profiles/Android_Release_AAB.asset') }}
+      #    CACHE_KEY: Library-Android-${{ hashFiles(
+      #      'Packages/manifest.json',
+      #      'Packages/packages-lock.json',
+      #      'ProjectSettings/ProjectSettings.asset',
+      #      'ProjectSettings/ProjectVersion.txt',
+      #      'Assets/Settings/Build Profiles/Android_Release_APK.asset',
+      #      'Assets/Settings/Build Profiles/Android_Release_AAB.asset'
+      #      ) }}
       #  run: |
       #    echo "Looking for cache: $CACHE_KEY"
       #    if aws s3 cp "s3://$R2_BUCKET/$CACHE_KEY" Library.tar.zst --endpoint-url $R2_ENDPOINT --quiet; then
@@ -388,9 +395,23 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
         with:
           path: Library
-          key: Library-Android-${{ hashFiles('Packages/manifest.json', 'Packages/packages-lock.json', 'ProjectSettings/ProjectSettings.asset', 'ProjectSettings/ProjectVersion.txt', 'Assets/Settings/Build Profiles/Android_Release_APK.asset', 'Assets/Settings/Build Profiles/Android_Release_AAB.asset') }}-$ANDROID_VERSION_CODE-${{ matrix.exportMode == 'apk' && 'apk' || 'aab' }}-${{ inputs.use_cached_library == true && '' || 'new' }}-main
+          key: Library-Android-${{ hashFiles(
+            'Packages/manifest.json',
+            'Packages/packages-lock.json',
+            'ProjectSettings/ProjectSettings.asset',
+            'ProjectSettings/ProjectVersion.txt',
+            'Assets/Settings/Build Profiles/Android_Release_APK.asset',
+            'Assets/Settings/Build Profiles/Android_Release_AAB.asset'
+            ) }}-${{ env.ANDROID_VERSION_CODE }}-${{ matrix.exportMode == 'apk' && 'apk' || 'aab' }}-${{ inputs.use_cached_library == true && '' || 'new' }}-main
           restore-keys: |
-            Library-Android-${{ hashFiles('Packages/manifest.json', 'Packages/packages-lock.json', 'ProjectSettings/ProjectSettings.asset', 'ProjectSettings/ProjectVersion.txt', 'Assets/Settings/Build Profiles/Android_Release_APK.asset', 'Assets/Settings/Build Profiles/Android_Release_AAB.asset') }}-$ANDROID_VERSION_CODE-${{ inputs.use_cached_library == true && '' || 'dontusecache' }}
+            Library-Android-${{ hashFiles(
+              'Packages/manifest.json',
+              'Packages/packages-lock.json',
+              'ProjectSettings/ProjectSettings.asset',
+              'ProjectSettings/ProjectVersion.txt',
+              'Assets/Settings/Build Profiles/Android_Release_APK.asset',
+              'Assets/Settings/Build Profiles/Android_Release_AAB.asset'
+              ) }}-${{ inputs.use_cached_library == true && '' || 'dontusecache' }}
 
       - name: Check hash codes
         timeout-minutes: 1
@@ -751,7 +772,14 @@ jobs:
       #    AWS_DEFAULT_REGION: us-east-1
       #    R2_BUCKET: ${{ secrets.R2_BUCKET_NAME }}
       #    R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
-      #    CACHE_KEY: Library-Android-${{ hashFiles('Packages/manifest.json', 'Packages/packages-lock.json', 'ProjectSettings/ProjectSettings.asset', 'ProjectSettings/ProjectVersion.txt', 'Assets/Settings/Build Profiles/Android_Release_APK.asset', 'Assets/Settings/Build Profiles/Android_Release_AAB.asset') }}
+      #    CACHE_KEY: Library-Android-${{ hashFiles(
+      #      'Packages/manifest.json',
+      #      'Packages/packages-lock.json',
+      #      'ProjectSettings/ProjectSettings.asset',
+      #      'ProjectSettings/ProjectVersion.txt',
+      #      'Assets/Settings/Build Profiles/Android_Release_APK.asset',
+      #      'Assets/Settings/Build Profiles/Android_Release_AAB.asset'
+      #      ) }}
       #  run: |
       #    if [ ! -d "Library" ]; then
       #      echo "Library folder not found, skipping cache save."
