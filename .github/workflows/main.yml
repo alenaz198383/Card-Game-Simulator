@@ -251,74 +251,14 @@ jobs:
         env:
           CUSTOM_BUILD_VERSION: ${{ inputs.custom_build_version }}
           EXPORT_MODE: ${{ matrix.exportMode }}
-          IS_PRODUCTION: ${{ inputs.isProduction }} # helpers
-          SENTRY_CLI_OPTIONS: ${{ secrets.SENTRY_CLI_OPTIONS }} # helpers
-          PROJECT_SETTINGS_FILE: ${{ env.PROJECT_SETTINGS_FILE }} # helpers
-          STORE: ${{ matrix.store }} # helpers
+          IS_PRODUCTION: ${{ inputs.isProduction }}
+          SENTRY_CLI_OPTIONS: ${{ secrets.SENTRY_CLI_OPTIONS }}
+          PROJECT_SETTINGS_FILE: ${{ env.PROJECT_SETTINGS_FILE }}
+          STORE: ${{ matrix.store }}
         run: |
           source .github/scripts/helpers.sh
-          CUSTOM_VER="$CUSTOM_BUILD_VERSION"
           #
-          DEST="$PROJECT_SETTINGS_FILE"
-          cp "$DEST" "$DEST.bak"
-          #
-          set_sentry
-          set_define_symbols
-          set_prod
-          tune_UniversalRenderPipelineGlobalSettings
-          remove_ttf_files
-          #
-          mkdir -p "$GH_WS_R8PATH"
-          mkdir -p "$TMP_R8_ANALYSIS_PATH"
-          #
-          rm -rf Assets/PlayModeTests/
-          rm -rf Assets/Scripts/EditModeTests/
-          #
-          # --- Логика для VERSION (buildVersion.txt) ---
-          if [ -n "$CUSTOM_VER" ]; then
-            echo "Using custom build version from input: $CUSTOM_VER"
-            BUILD_VERSION="$CUSTOM_VER"
-            #
-            # 2. Валидация формата X.Y.Z (три числа через точку)
-            # Регулярка проверяет: начало строки, число, точка, число, точка, число, конец строки
-            if ! [[ "$BUILD_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-              echo "Error: Invalid version format '$BUILD_VERSION'. Expected format is X.Y.Z (e.g., 1.2.3)" >&2
-              exit 1
-            fi
-            #
-            # 3. Парсим X, Y, Z
-            # Используем IFS (Internal Field Separator) для разбиения строки по точке
-            IFS='.' read -r X Y Z <<< "$BUILD_VERSION"
-            #
-            # На всякий случай проверяем, что переменные не пустые (защита от странных багов)
-            if [ -z "$X" ] || [ -z "$Y" ] || [ -z "$Z" ]; then
-              echo "Error: Failed to parse version components from '$BUILD_VERSION'" >&2
-              echo "major: $X"
-              echo "minor: $Y"
-              echo "patch: $Z"
-              exit 1
-            fi
-            #
-            # 4. Вычисляем ANDROID_VERSION_CODE
-            ANDROID_CODE=$((X * 1000000 + Y * 1000 + Z))
-            #
-            echo "Parsed components: X=$X, Y=$Y, Z=$Z"
-            echo "Calculated ANDROID_VERSION_CODE: $ANDROID_CODE"
-          else
-            ANDROID_CODE=$(cat ProjectSettings/androidVersionCode.txt | tr -d '[:space:]')
-            BUILD_VERSION=$(cat ProjectSettings/buildVersion.txt | tr -d '[:space:]')
-          fi
-          #
-          sed -i "s/^  bundleVersion: .*/  bundleVersion: $BUILD_VERSION/" "$DEST"
-          sed -i "s/^  AndroidBundleVersionCode: .*/  AndroidBundleVersionCode: $ANDROID_CODE/" "$DEST"
-          #
-          PROJECT_BUILD_VERSION=$(grep -oP 'bundleVersion:\s*\K[\d.]+'        "$PROJECT_SETTINGS_FILE")
-          PROJECT_ANDROID_CODE=$(grep -oP 'AndroidBundleVersionCode:\s*\K\d+' "$PROJECT_SETTINGS_FILE")
-          #
-          echo "VERSION=$PROJECT_BUILD_VERSION"                             >> "$GITHUB_ENV"
-          echo "ANDROID_VERSION_CODE=$PROJECT_ANDROID_CODE"                 >> "$GITHUB_ENV"
-          echo "VERSIONnExt=$PROJECT_ANDROID_CODE.$EXPORT_MODE"             >> "$GITHUB_ENV"
-          echo "fullVERSIONnMODE=$PROJECT_ANDROID_CODE.$STORE.$EXPORT_MODE" >> "$GITHUB_ENV"
+          extract_build_versions
 
       - name: Show Using Variables
         timeout-minutes: 1
@@ -427,6 +367,17 @@ jobs:
           echo "Assets/Settings/Build Profiles/:"
           echo "    /Android_Release_AAB.asset:   ${{ hashFiles('Assets/Settings/Build Profiles/Android_Release_AAB.asset') }}"
           echo "    /Android_Release_APK.asset:   ${{ hashFiles('Assets/Settings/Build Profiles/Android_Release_APK.asset') }}"
+
+      - name: Apply ProjectSettings.asset changes
+        timeout-minutes: 1
+        env:
+          IS_PRODUCTION: ${{ inputs.isProduction }}
+          PROJECT_SETTINGS_FILE: ${{ env.PROJECT_SETTINGS_FILE }}
+          STORE: ${{ matrix.store }}
+        run: |
+          source .github/scripts/helpers.sh
+          #
+          apply_project_settings
 
       - name: 📈 Install sentry-cli
         timeout-minutes: 1
