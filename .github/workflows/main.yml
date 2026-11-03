@@ -342,7 +342,7 @@ jobs:
             'ProjectSettings/ProjectVersion.txt',
             'Assets/Settings/Build Profiles/Android_Release_APK.asset',
             'Assets/Settings/Build Profiles/Android_Release_AAB.asset'
-            ) }}-${{ env.ANDROID_VERSION_CODE }}-${{ matrix.exportMode == 'apk' && 'apk' || 'aab' }}-${{ inputs.use_cached_library == true && '' || 'new' }}-main
+            ) }}-${{ env.ANDROID_VERSION_CODE }}-${{ matrix.exportMode == 'apk' && 'apk' || 'aab' }}${{ inputs.use_cached_library == true && '-' || '-new-' }}main
           restore-keys: |
             Library-Android-${{ hashFiles(
               'Packages/manifest.json',
@@ -351,7 +351,7 @@ jobs:
               'ProjectSettings/ProjectVersion.txt',
               'Assets/Settings/Build Profiles/Android_Release_APK.asset',
               'Assets/Settings/Build Profiles/Android_Release_AAB.asset'
-              ) }}-${{ inputs.use_cached_library == true && '' || 'dontusecache' }}
+              ) }}${{ inputs.use_cached_library == true && '-' || '-dontusecache' }}
 
       - name: Check hash codes
         timeout-minutes: 1
