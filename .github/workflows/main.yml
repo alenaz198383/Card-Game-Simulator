@@ -208,13 +208,6 @@ jobs:
             sudo apt-get install -y p7zip-full
           fi
 
-      - name: 🔍 Check deps
-        timeout-minutes: 1
-        run: |
-          source .github/scripts/helpers.sh
-          #
-          check_secure_storage_dependency_versions
-
       - name: Free Disk Space
         timeout-minutes: 6
         #v.1.3.2 - https://github.com/jlumbroso/free-disk-space/releases
@@ -252,6 +245,13 @@ jobs:
           rm -rf Card-Game-Simulator/
           mv Card-Game-Simulator_new/ Card-Game-Simulator/
           cd ./Card-Game-Simulator/
+
+      - name: 🔍 Check deps
+        timeout-minutes: 1
+        run: |
+          source .github/scripts/helpers.sh
+          #
+          check_secure_storage_dependency_versions
 
       - name: Extract Build Versions (File or Input)
         timeout-minutes: 1
