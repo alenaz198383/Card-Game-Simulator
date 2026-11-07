@@ -922,8 +922,8 @@ jobs:
         id: setup_latest_Gradle
         if: always() && steps.buildStep.outcome != 'skipped'
         env:
-          LATEST_GRADLE_URL: 'https://services.gradle.org/distributions/gradle-$LATEST_GRADLE-bin.zip'
-          PATH_TO_SAVE_ZIP: '$GRADLE_FOLDER_PATH.zip'
+          LATEST_GRADLE_URL: 'https://services.gradle.org/distributions/gradle-${{ env.LATEST_GRADLE }}-bin.zip'
+          PATH_TO_SAVE_ZIP: '${{ env.GRADLE_FOLDER_PATH }}.zip'
         run: |
           source .github/scripts/helpers.sh
           #
@@ -973,7 +973,8 @@ jobs:
           check_folder "$GRADLE_PROJECT/gradle/"
           check_folder "$GRADLE_PROJECT/gradle/wrapper/"
           cat_file     "$GRADLE_PROJECT/gradle/wrapper/gradle-wrapper.properties"
-          sed -i 's|distributionUrl=.*|distributionUrl=https\\://services.gradle.org/distributions/gradle-$LATEST_GRADLE-bin.zip|' \
+          NEW_URL="https\\://services.gradle.org/distributions/gradle-${LATEST_GRADLE}-bin.zip"
+          sed -i "s|distributionUrl=.*|distributionUrl=${NEW_URL}|" \
             "$GRADLE_PROJECT/gradle/wrapper/gradle-wrapper.properties"
           cat_file "$GRADLE_PROJECT/gradle/wrapper/gradle-wrapper.properties"
           #
