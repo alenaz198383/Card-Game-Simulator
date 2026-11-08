@@ -961,6 +961,8 @@ jobs:
       - name: Patch Gradle project for R8 Configuration Analyzer
         continue-on-error: true
         id: patch_gradle_project_for_R8
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         if: always() && steps.setup_latest_Gradle.outcome == 'success'
         run: |
           # Меняем владельца на runner
@@ -980,11 +982,32 @@ jobs:
           #
           # Обновляем AGP до 9.3.0
           cat_file "$GRADLE_PROJECT/build.gradle"
-          sed -i "s|id 'com.android.application' version '9.0.1'|id 'com.android.application' version '9.3.0'|" \
-            "$GRADLE_PROJECT/build.gradle"
+          #
+          AGP_OLD_APP="id 'com.android.application' version '9.1.1'"
+          AGP_NEW_APP="id 'com.android.application' version '9.3.0'"
+          AGP_OLD_LIB="id 'com.android.library' version '9.1.1'"
+          AGP_NEW_LIB="id 'com.android.library' version '9.3.0'"
+          #
+          # === Проверка наличия строк перед патчингом ===
+          MISSING_STRINGS=""
+          if ! grep -qF "$AGP_OLD_APP" "$GRADLE_PROJECT/build.gradle"; then
+            echo "❌ Строка \"$AGP_OLD_APP\" НЕ найдена в $GRADLE_PROJECT/build.gradle"
+            MISSING_STRINGS="1"
+          fi
+          if ! grep -qF "$AGP_OLD_LIB" "$GRADLE_PROJECT/build.gradle"; then
+            echo "❌ Строка \"$AGP_OLD_LIB\" НЕ найдена в $GRADLE_PROJECT/build.gradle"
+            MISSING_STRINGS="1"
+          fi
+          if [ -n "$MISSING_STRINGS" ]; then
+            echo "🚫 Обязательные строки не найдены — отменяем весь CI-запуск"
+            gh run cancel "$GITHUB_RUN_ID"
+            sleep 30
+            exit 1
+          fi
+          #
+          sed -i "s|${AGP_OLD_APP}|${AGP_NEW_APP}|" "$GRADLE_PROJECT/build.gradle"
           cat_file "$GRADLE_PROJECT/build.gradle"
-          sed -i "s|id 'com.android.library' version '9.0.1'|id 'com.android.library' version '9.3.0'|" \
-            "$GRADLE_PROJECT/build.gradle"
+          sed -i "s|${AGP_OLD_LIB}|${AGP_NEW_LIB}|" "$GRADLE_PROJECT/build.gradle"
           cat_file "$GRADLE_PROJECT/build.gradle"
           #
           echo "=== gradle-wrapper.properties ==="
@@ -1022,14 +1045,12 @@ jobs:
           #
           check_folder $ANDROID_SDK_ROOT/ndk/
           # Находим доступный NDK на раннере
-          echo "=== $ANDROID_SDK_ROOT/ndk/* ==="
+          echo "=== $ANDROID_SDK_ROOT/ndk/* 2>/dev/null ==="
           ls -d     $ANDROID_SDK_ROOT/ndk/* 2>/dev/null
           echo "=== $ANDROID_SDK_ROOT/ndk/* 2>/dev/null | sort -V ==="
           ls -d     $ANDROID_SDK_ROOT/ndk/* 2>/dev/null | sort -V
           echo "====================================================="
-          #NDK_PATH=$(ls -d $ANDROID_SDK_ROOT/ndk/* 2>/dev/null | sort -V | tail -1)
-          # Используем конкретно 28.2.x:
-          NDK_PATH="/usr/local/lib/android/sdk/ndk/28.2.13676358"
+          NDK_PATH=$(ls -d $ANDROID_SDK_ROOT/ndk/* 2>/dev/null | sort -V | tail -1)
           echo "Found NDK: $NDK_PATH"
           #
           # Патчим ndkPath во ВСЕХ build.gradle
@@ -1064,7 +1085,7 @@ jobs:
           echo "=== ndkVersion line ==="
           grep -rn "ndkVersion" "$GRADLE_PROJECT" --include="*.gradle" || true
           echo "====================================================="
-          echo "=== apply from lines ===" 
+          echo "=== 'apply from' lines ===" 
           grep -n "apply from" "$GRADLE_PROJECT/launcher/build.gradle" || true
           echo "====================================================="
           #
