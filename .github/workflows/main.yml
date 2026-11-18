@@ -162,7 +162,8 @@ jobs:
         timeout-minutes: 1
         if: always()
         run: |
-          echo "`java -version`: \`${{ java -version }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "`java -version` : \`${{ java -version }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "`javac -version`: \`${{ javac -version }}\`" >> $GITHUB_STEP_SUMMARY
           #
           echo "############### Get OS and Hardware info step ###############"
           echo "=== ОС и ядро ==="
