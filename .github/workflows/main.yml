@@ -162,6 +162,7 @@ jobs:
         timeout-minutes: 1
         if: always()
         run: |
+          echo "##### Java version" >> $GITHUB_STEP_SUMMARY
           JAVA_VER=$(java -version 2>&1)
           JAVAC_VER=$(javac -version 2>&1)
           echo "java -version:" >> $GITHUB_STEP_SUMMARY
