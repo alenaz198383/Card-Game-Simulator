@@ -365,23 +365,23 @@ jobs:
           check_folder "~/.gradle"
           check_folder "~/.gradle/caches"
 
-      - name: Cache '~/.gradle/caches'
-        timeout-minutes: 3
-        #v6.1.0 - https://github.com/actions/cache/releases
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
-        with:
-          path: ~/.gradle/caches
-          key: gradle-${{ hashFiles('Assets/Plugins/Android/baseProjectTemplate.gradle') }}
-          restore-keys: gradle-
+      #- name: Cache '~/.gradle/caches'
+      #  timeout-minutes: 3
+      #  #v6.1.0 - https://github.com/actions/cache/releases
+      #  uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+      #  with:
+      #    path: ~/.gradle/caches
+      #    key: gradle-${{ hashFiles('Assets/Plugins/Android/baseProjectTemplate.gradle') }}
+      #    restore-keys: gradle-
 
-      - name: Check '~/.gradle/caches'
-        timeout-minutes: 1
-        if: always()
-        run: |
-          source .github/scripts/helpers.sh
-          #
-          check_folder "~/.gradle"
-          check_folder "~/.gradle/caches"
+      #- name: Check '~/.gradle/caches'
+      #  timeout-minutes: 1
+      #  if: always()
+      #  run: |
+      #    source .github/scripts/helpers.sh
+      #    #
+      #    check_folder "~/.gradle"
+      #    check_folder "~/.gradle/caches"
 
       - name: Cache Library
         timeout-minutes: 3
@@ -492,6 +492,7 @@ jobs:
         run: |
           source .github/scripts/helpers.sh
           #
+          check_folder "~/.gradle"
           check_folder "~/.gradle/caches"
 
       - name: After build timestamp
