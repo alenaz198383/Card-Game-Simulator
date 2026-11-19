@@ -428,6 +428,7 @@ jobs:
           GRADLE_OPTS: ${{ env.GRADLE_OPTS }}
           R8_DUMP_KEEP_RADIUS: 'true'
         with:
+          containerRegistryImageVersion: '4'
           targetPlatform: Android
           customParameters: -SENTRY_AUTH_TOKEN ${{ secrets.SENTRY_AUTH_TOKEN }} -SENTRY_ORG ${{ secrets.SENTRY_ORG }} -SENTRY_PROJECT ${{ secrets.SENTRY_PROJECT }}
           allowDirtyBuild: true
