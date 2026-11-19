@@ -162,6 +162,17 @@ jobs:
         timeout-minutes: 1
         if: always()
         run: |
+          echo "# 👀 Test" >> $GITHUB_STEP_SUMMARY
+          echo "foo bar" >> $GITHUB_STEP_SUMMARY
+          echo "## 👀 Test" >> $GITHUB_STEP_SUMMARY
+          echo "foo bar" >> $GITHUB_STEP_SUMMARY
+          echo "### 👀 Test" >> $GITHUB_STEP_SUMMARY
+          echo "foo bar" >> $GITHUB_STEP_SUMMARY
+          echo "#### 👀 Test" >> $GITHUB_STEP_SUMMARY
+          echo "foo bar" >> $GITHUB_STEP_SUMMARY
+          echo "##### 👀 Test" >> $GITHUB_STEP_SUMMARY
+          echo "foo bar" >> $GITHUB_STEP_SUMMARY
+          #
           echo "##### Java version" >> $GITHUB_STEP_SUMMARY
           JAVA_VER=$(java -version 2>&1)
           JAVAC_VER=$(javac -version 2>&1)
@@ -345,6 +356,33 @@ jobs:
       #      echo "Cache not found. Nothing to download."
       #    fi
 
+      - name: Check '~/.gradle/caches'
+        timeout-minutes: 1
+        if: always()
+        run: |
+          source .github/scripts/helpers.sh
+          #
+          check_folder "~/.gradle"
+          check_folder "~/.gradle/caches"
+
+      - name: Cache '~/.gradle/caches'
+        timeout-minutes: 3
+        #v6.1.0 - https://github.com/actions/cache/releases
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+        with:
+          path: ~/.gradle/caches
+          key: gradle-${{ hashFiles('Assets/Plugins/Android/baseProjectTemplate.gradle') }}
+          restore-keys: gradle-
+
+      - name: Check '~/.gradle/caches'
+        timeout-minutes: 1
+        if: always()
+        run: |
+          source .github/scripts/helpers.sh
+          #
+          check_folder "~/.gradle"
+          check_folder "~/.gradle/caches"
+
       - name: Cache Library
         timeout-minutes: 3
         #v6.1.0 - https://github.com/actions/cache/releases
@@ -383,6 +421,10 @@ jobs:
           echo "Assets/Settings/Build Profiles/:"
           echo "    /Android_Release_AAB.asset:   ${{ hashFiles('Assets/Settings/Build Profiles/Android_Release_AAB.asset') }}"
           echo "    /Android_Release_APK.asset:   ${{ hashFiles('Assets/Settings/Build Profiles/Android_Release_APK.asset') }}"
+          echo ""
+          echo "=== Cache '~/.gradle/caches': ==="
+          echo "Assets/Plugins/Android/:"
+          echo "    /baseProjectTemplate.gradle:  ${{ hashFiles('Assets/Plugins/Android/baseProjectTemplate.gradle') }}"
 
       - name: Apply ProjectSettings.asset changes
         timeout-minutes: 1
@@ -443,6 +485,14 @@ jobs:
           androidKeyaliasName: my-key-alias
           androidKeyaliasPass: ${{ secrets.ANDROID_KEYALIAS_PASS }}
           androidTargetSdkVersion: AndroidApiLevel36
+
+      - name: Check '~/.gradle/caches'
+        timeout-minutes: 1
+        if: always()
+        run: |
+          source .github/scripts/helpers.sh
+          #
+          check_folder "~/.gradle/caches"
 
       - name: After build timestamp
         timeout-minutes: 1
